@@ -57,7 +57,7 @@ namespace Microsoft.R.Host.Client {
         private volatile Task _runTask;
         private volatile Task<REvaluationResult> _cancelEvaluationAfterRunTask;
         private int _rLoopDepth;
-        private long _lastMessageId = -1;
+        private long _lastMessageId = 0;
         private readonly ConcurrentDictionary<string, BaseRequest> _requests = new ConcurrentDictionary<string, BaseRequest>();
 
         private TaskCompletionSource<object> _cancelAllTcs;
@@ -93,52 +93,30 @@ namespace Microsoft.R.Host.Client {
         }
 
         private async Task<Message> ReceiveMessageAsync(CancellationToken ct) {
-            string json;
+            Message message;
             try {
-                json = await _transport.ReceiveAsync(ct);
+                message = await _transport.ReceiveAsync(ct);
             } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {
                 // Network errors during cancellation are expected, but should not be exposed to clients.
                 throw new OperationCanceledException(new OperationCanceledException().Message, ex);
             }
 
-            _log.Response(json, _rLoopDepth);
-
-            var token = JToken.Parse(json);
-
-            var value = token as JValue;
-            if (value != null && value.Value == null) {
-                return null;
-            }
-
-            var message = new Message(token);
-
-            for(int i = 0; i < message.ExpectedBlobs; ++i) {
-                var blob_slices = await _transport.ReceiveRawAsync();
-                message.Blobs.Enqueue(blob_slices);
-            }
-
+            _log.Response(message.ToString(), _rLoopDepth);
             return message;
         }
 
-        private JArray CreateMessageHeader(out string id, string name, string requestId, int blobCount = 0) {
-            long n = Interlocked.Add(ref _lastMessageId, 2);
-            id = "#" + n + "#";
-            var header = String.IsNullOrWhiteSpace(requestId) ? new JArray(id, name, blobCount) : new JArray(id, name, blobCount, requestId);
-            return header;
+        private Message CreateMessage(string name, ulong requestId, JArray json, byte[] blob = null) {
+            ulong id = (ulong)Interlocked.Add(ref _lastMessageId, 2);
+            return new Message(id, requestId, name, json, blob);
         }
 
-        private JArray CreateMessage(JArray header, params object[] args) {
-            return new JArray(header, args);
-        }
-
-        private async Task SendAsync(JToken token, CancellationToken ct) {
+        private async Task SendAsync(Message message, CancellationToken ct) {
             TaskUtilities.AssertIsOnBackgroundThread();
 
-            var json = JsonConvert.SerializeObject(token);
-            _log.Request(json, _rLoopDepth);
+            _log.Request(message.ToString(), _rLoopDepth);
 
             try {
-                await _transport.SendAsync(json, ct);
+                await _transport.SendAsync(message, ct);
             } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {
                 // Network errors during cancellation are expected, but should not be exposed to clients.
                 throw new OperationCanceledException(new OperationCanceledException().Message, ex);
@@ -147,38 +125,22 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
-        private async Task SendAsync(JToken token, byte[] data, CancellationToken ct) {
-            TaskUtilities.AssertIsOnBackgroundThread();
-
-            var json = JsonConvert.SerializeObject(token);
-            _log.Request(json, _rLoopDepth);
-
-            try {
-                await _transport.SendAsync(json, data, ct);
-            } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {
-                // Network errors during cancellation are expected, but should not be exposed to clients.
-                throw new OperationCanceledException(new OperationCanceledException().Message, ex);
-            }
-        }
-
-        private async Task<string> NotifyAsync(string name, CancellationToken ct, params object[] args) {
+        private async Task<ulong> NotifyAsync(string name, CancellationToken ct, params object[] args) {
             Debug.Assert(name.StartsWithOrdinal("!"));
             TaskUtilities.AssertIsOnBackgroundThread();
 
-            string id;
-            var message = CreateMessage(CreateMessageHeader(out id, name, null), args);
+            var message = CreateMessage(name, 0, new JArray(args));
             await SendAsync(message, ct);
-            return id;
+            return message.Id;
         }
 
-        private async Task<string> RespondAsync(Message request, CancellationToken ct, params object[] args) {
+        private async Task<ulong> RespondAsync(Message request, CancellationToken ct, params object[] args) {
             Debug.Assert(request.Name.StartsWithOrdinal("?"));
             TaskUtilities.AssertIsOnBackgroundThread();
 
-            string id;
-            var message = CreateMessage(CreateMessageHeader(out id, ":" + request.Name.Substring(1), request.Id), args);
+            var message = CreateMessage(":" + request.Name.Substring(1), ulong.MaxValue, new JArray(args));
             await SendAsync(message, ct);
-            return id;
+            return message.Id;
         }
 
         private static RContext[] GetContexts(Message message) {
