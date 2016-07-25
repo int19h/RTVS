@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.R.Host.Client {
-    internal interface IMessageTransport {
+    public interface IMessageTransport {
         Task SendAsync(Message message, CancellationToken ct = default(CancellationToken));
         Task<Message> ReceiveAsync(CancellationToken ct = default(CancellationToken));
     }

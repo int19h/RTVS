@@ -54,11 +54,9 @@
     <Compile Include="DataInspection\REvaluationResultProperties.cs" />
     <Compile Include="DataInspection\RPromiseInfo.cs" />
     <Compile Include="DataInspection\RSessionExtensions.cs" />
-    <Compile Include="Definitions\Blob.cs" />
-    <Compile Include="Host\RHost.BaseRequest.cs" />
-    <Compile Include="Host\RHost.BlobRequestKind.cs" />
-    <Compile Include="Host\RHost.BlobResult.cs" />
-    <Compile Include="Host\RHost.GetBlobResult.cs" />
+    <Compile Include="Host\RHost.GetBlobRequest.cs" />
+    <Compile Include="Host\RHost.CreateBlobRequest.cs" />
+    <Compile Include="Host\RHost.Request.cs" />
     <Compile Include="Definitions\IRBlobService.cs" />
     <Compile Include="Definitions\PlotMessage.cs" />
     <Compile Include="Definitions\REnvironments.cs" />
@@ -71,7 +69,6 @@
     <Compile Include="Definitions\REvaluationResult.cs" />
     <Compile Include="Definitions\IRSessionContext.cs" />
     <Compile Include="Definitions\REvaluationException.cs" />
-    <Compile Include="Host\RHost.SendBlobResult.cs" />
     <Compile Include="Encodings\REncodingsMap.cs" />
     <Compile Include="ExecutionTracing\IRBreakpoint.cs" />
     <Compile Include="ExecutionTracing\IRExecutionTracer.cs" />
@@ -83,7 +80,6 @@
     <Compile Include="Install\RInstallationExtensions.cs" />
     <Compile Include="Extensions\RawEvalResultExtensions.cs" />
     <Compile Include="Extensions\DirectoryExtensions.cs" />
-    <Compile Include="Host\RHost.BlobRequest.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Definitions\GuidList.cs" />

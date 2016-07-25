@@ -15,13 +15,19 @@ using System.Diagnostics;
 using System.IO;
 
 namespace Microsoft.R.Host.Client {
-    internal class Message {
+    public class Message {
         public readonly ulong Id;
         public readonly ulong RequestId;
         public readonly string Name;
 
         public readonly JArray Json;
         public readonly byte[] Blob;
+
+        public bool IsRequest => RequestId == ulong.MaxValue;
+
+        public bool IsNotification => RequestId == 0;
+
+        public bool IsResponse => !IsRequest && !IsNotification;
 
         public int ArgumentCount => Json.Count;
 
@@ -138,6 +144,11 @@ namespace Microsoft.R.Host.Client {
         public int GetInt32(int i, string name) {
             var arg = GetArgument(i, name, JTokenType.Integer);
             return (int)arg;
+        }
+
+        public ulong GetUInt64(int i, string name) {
+            var arg = GetArgument(i, name, JTokenType.Integer);
+            return (ulong)arg;
         }
 
         public bool GetBoolean(int i, string name) {
