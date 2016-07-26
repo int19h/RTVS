@@ -315,7 +315,7 @@ namespace Microsoft.R.Host.Client {
             try {
                 // Don't use _cts, since it's already cancelled. We want to try to send this message in
                 // any case, and we'll catch MessageTransportException if no-one is on the other end anymore.
-                await NotifyAsync("!Q", new CancellationToken());
+                await NotifyAsync("!End", new CancellationToken());
             } catch (OperationCanceledException) {
             } catch (MessageTransportException) {
             }
@@ -350,7 +350,7 @@ namespace Microsoft.R.Host.Client {
 
                     try {
                         switch (message.Name) {
-                            case "!Q":
+                            case "!End":
                                 return null;
 
                             case "!CanceledAll":
@@ -462,7 +462,7 @@ namespace Microsoft.R.Host.Client {
 
             try {
                 var message = await ReceiveMessageAsync(ct);
-                if (message.Name != "!Microsoft.R.Host" || message.RequestId != null) {
+                if (!message.IsNotification || message.Name != "!Microsoft.R.Host") {
                     throw ProtocolError($"Microsoft.R.Host handshake expected:", message);
                 }
 

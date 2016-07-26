@@ -48,14 +48,14 @@ namespace Microsoft.R.Host.Client {
                 RequestId = BitConverter.ToUInt64(data, offset);
                 offset += sizeof(ulong);
 
-                int term = Array.IndexOf(data, 0, offset);
+                int term = Array.IndexOf<byte>(data, 0, offset);
                 if (term < 0) {
                     throw new IndexOutOfRangeException();
                 }
                 Name = Encoding.UTF8.GetString(data, offset, term - offset);
                 offset = term + 1;
 
-                term = Array.IndexOf(data, 0, offset);
+                term = Array.IndexOf<byte>(data, 0, offset);
                 if (term < 0) {
                     throw new IndexOutOfRangeException();
                 }
@@ -83,7 +83,9 @@ namespace Microsoft.R.Host.Client {
                     writer.Write('\0');
                     writer.Write(Blob);
                 }
-                return stream.ToArray();
+
+                var bytes = stream.ToArray();
+                return bytes;
             }
         }
 

@@ -13,7 +13,6 @@ namespace Microsoft.R.Host.Client {
         private class EvaluationRequest : Request<REvaluationResult> {
             private static readonly string[] parseStatusNames = { "NULL", "OK", "INCOMPLETE", "ERROR", "EOF" };
 
-            public readonly string Expression;
             public readonly REvaluationKind Kind;
 
             private EvaluationRequest(RHost host, Message message, REvaluationKind kind, CancellationToken cancellationToken)

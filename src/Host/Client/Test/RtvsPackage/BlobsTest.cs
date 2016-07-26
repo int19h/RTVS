@@ -51,7 +51,7 @@ namespace Microsoft.R.Host.Client.Test.RtvsPackage {
             res.RawResult.Should().Equal(data);
         }
 
-        [CompositeTest]
+        [Test]
         [Category.R.RtvsPackage]
         public async Task RawResultNull() {
             using (var eval = await _session.BeginEvaluationAsync()) {
