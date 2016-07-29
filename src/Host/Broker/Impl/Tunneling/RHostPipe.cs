@@ -71,9 +71,9 @@ namespace Microsoft.R.Host.Broker.Tunneling {
             }
 
             public async Task<byte[]> ReadAsync() {
+                var handshake = _pipe._handshake;
                 if (_isFirstRead) {
                     _isFirstRead = false;
-                    var handshake = _pipe._handshake;
                     if (handshake != null) {
                         return handshake;
                     }
@@ -91,7 +91,9 @@ namespace Microsoft.R.Host.Broker.Tunneling {
                 ulong id, requestId;
                 Parse(message, out id, out requestId);
 
-                if (requestId == ulong.MaxValue) {
+                if (handshake == null) {
+                    _pipe._handshake = message;
+                } else if (requestId == ulong.MaxValue) {
                     _pipe._sentPendingRequests.TryAdd(id, message);
                 }
 

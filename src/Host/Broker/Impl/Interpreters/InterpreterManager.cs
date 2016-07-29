@@ -13,7 +13,7 @@ namespace Microsoft.R.Host.Broker.Interpreters {
         private readonly IOptions<InterpretersOptions> _interpOptions;
         private readonly RInstallation _rInstallation = new RInstallation();
 
-        public readonly IReadOnlyCollection<InterpreterInfo> Interpreters;
+        public IReadOnlyCollection<Interpreter> Interpreters { get; }
 
         [ImportingConstructor]
         public InterpreterManager(IOptions<InterpretersOptions> interpOptions) {
@@ -21,20 +21,20 @@ namespace Microsoft.R.Host.Broker.Interpreters {
             Interpreters = GetInterpreters().ToArray();
         }
 
-        private IEnumerable<InterpreterInfo> GetInterpreters() {
+        private IEnumerable<Interpreter> GetInterpreters() {
             if (_interpOptions.Value.AutoDetect) {
-                var detectedInfo = GetInterpreterInfo("", null, throwOnError: false);
+                var detectedInfo = CreateInterpreter("", null, throwOnError: false);
                 if (detectedInfo != null) {
                     yield return detectedInfo;
                 }
             }
 
             foreach (var kv in _interpOptions.Value.Interpreters) {
-                yield return GetInterpreterInfo(kv.Key, kv.Value.BasePath, throwOnError: true);
+                yield return CreateInterpreter(kv.Key, kv.Value.BasePath, throwOnError: true);
             }
         }
 
-        private InterpreterInfo GetInterpreterInfo(string name, string basePath, bool throwOnError) {
+        private Interpreter CreateInterpreter(string name, string basePath, bool throwOnError) {
             var rid = _rInstallation.GetInstallationData(basePath, new SupportedRVersionRange());
             if (rid.Status != RInstallStatus.OK) {
                 if (throwOnError) {
@@ -44,12 +44,14 @@ namespace Microsoft.R.Host.Broker.Interpreters {
                 }
             }
 
-            return new InterpreterInfo {
+            var info = new InterpreterInfo {
                 Id = name,
                 Path = rid.Path,
                 BinPath = rid.BinPath,
                 Version = rid.Version,
             };
+
+            return new Interpreter(this, info);
         }
     }
 }

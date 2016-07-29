@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Security;
+using Microsoft.R.Host.Broker.Sessions;
 
 namespace Microsoft.R.Host.Broker {
     public class Startup {
@@ -21,6 +22,8 @@ namespace Microsoft.R.Host.Broker {
                 .Configure<SecurityOptions>(Program.Configuration.GetSection("Security"));
 
             services.AddSingleton<InterpreterManager>();
+
+            services.AddSingleton<SessionManager>();
 
             services.AddSingleton<IAuthorizationHandler, RUserAuthorizationHandler>();
 

@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.R.Host.Broker.Security;
@@ -18,7 +19,7 @@ namespace Microsoft.R.Host.Broker.Interpreters {
 
         [HttpGet]
         public IEnumerable<InterpreterInfo> Get() {
-            return _interpManager.Interpreters;
+            return _interpManager.Interpreters.Select(interp => interp.Info);
         }
     }
 }

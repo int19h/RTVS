@@ -3,6 +3,8 @@
 
 using System;
 using System.Diagnostics;
+using System.Security.Principal;
+using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Tunneling;
 
 namespace Microsoft.R.Host.Broker.Sessions {
@@ -11,18 +13,22 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public Guid Id { get; }
 
-        public string InterpreterId { get; }
+        public Interpreter Interpreter { get; }
+
+        public IIdentity User { get; }
 
         public RHostPipe Pipe { get; }
 
-        public Session(Guid id, string interpreterId) {
+        public Process Process => _process;
+
+        public Session(Guid id, Interpreter interpreter, IIdentity user) {
             Id = id;
-            InterpreterId = interpreterId;
+            Interpreter = interpreter;
+            User = user;
         }
 
         public void Start() {
 
         }
-
     }
 }
