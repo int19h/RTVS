@@ -12,6 +12,10 @@
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
+    <StartArguments>--server.urls http://localhost:5000</StartArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <Import Project="..\..\..\R.Settings.targets" />
   <PropertyGroup>
@@ -29,6 +33,8 @@
     <WarningLevel>4</WarningLevel>
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <CodeAnalysisRuleSet>$(SourceDirectory)DevDivRuleSet.ruleset</CodeAnalysisRuleSet>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -42,16 +48,37 @@
     <Compile Include="..\..\..\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="..\..\Client\Impl\Definitions\Message.cs">
+      <Link>Protocol\Message.cs</Link>
+    </Compile>
+    <Compile Include="Interpreters\Interpreter.cs" />
+    <Compile Include="Interpreters\InterpreterManager.cs" />
+    <Compile Include="Lifetime\LifetimeOptions.cs" />
+    <Compile Include="Lifetime\LifetimeManager.cs" />
+    <Compile Include="Lifetime\PingController.cs" />
+    <Compile Include="Logging\FileLogger.cs" />
+    <Compile Include="Logging\FileLoggerProvider.cs" />
+    <Compile Include="Logging\LoggingOptions.cs" />
+    <Compile Include="NativeMethods.cs" />
+    <Compile Include="Pipes\ProcessHelpers.cs" />
+    <Compile Include="Pipes\WebSocketPipeAction.cs" />
     <Compile Include="Security\Policies.cs" />
-    <Compile Include="Program.cs" />
-    <Compile Include="Tunneling\TunnelsController.cs" />
+    <Compile Include="Startup\StartupOptions.cs" />
+    <Compile Include="Startup\Program.cs" />
+    <Compile Include="Sessions\Session.cs" />
+    <Compile Include="Sessions\SessionCreateRequest.cs" />
+    <Compile Include="Sessions\SessionManager.cs" />
+    <Compile Include="Sessions\SessionInfo.cs" />
+    <Compile Include="Sessions\SessionsController.cs" />
+    <Compile Include="Pipes\IMessagePipeEnd.cs" />
+    <Compile Include="Pipes\MessagePipe.cs" />
     <Compile Include="Interpreters\InterpreterInfo.cs" />
     <Compile Include="Interpreters\InterpreterOptions.cs" />
     <Compile Include="Security\RUserAuthorizationHandler.cs" />
     <Compile Include="Security\RUserAuthorizationRequirement.cs" />
     <Compile Include="Security\SecurityOptions.cs" />
-    <Compile Include="Interpreters\InterpretersOptions.cs" />
-    <Compile Include="Startup.cs" />
+    <Compile Include="Interpreters\ROptions.cs" />
+    <Compile Include="Startup\Startup.cs" />
     <Compile Include="Interpreters\InterpretersController.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -71,6 +98,11 @@
     <ProjectReference Include="..\..\..\R\Interpreters\Impl\Microsoft.R.Interpreters.csproj">
       <Project>{8445A4FB-4443-432C-94E8-1408559B7F58}</Project>
       <Name>Microsoft.R.Interpreters</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Process\src\Microsoft.R.Host.vcxproj">
+      <SetPlatform>Platform=x64</SetPlatform>
+      <Project>{131842ce-daf9-4c0e-8409-4a26ef7961a7}</Project>
+      <Name>Microsoft.R.Host</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -23,25 +23,28 @@ namespace Microsoft.R.RtvsPackage.Test {
         private const string SameAsInput = "<INPUT>";
 
         private readonly MethodInfo _testMethod;
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
         private readonly IRSessionProvider _sessionProvider;
         private readonly IRSession _session;
 
         public JsonTest(TestMethodFixture testMethod) {
             _testMethod = testMethod.MethodInfo;
             _sessionProvider = new RSessionProvider();
-            _session = _sessionProvider.GetOrCreate(Guid.NewGuid(), new RHostBrokerConnector());
+            _session = _sessionProvider.GetOrCreate(Guid.NewGuid(), _brokerConnector);
         }
 
         public async Task InitializeAsync() {
-            var hostFactory = new LocalRHostConnector(new RInstallation().GetRInstallPath());
-            await _session.StartHostAsync(new RHostStartupInfo {
-                Name = _testMethod.Name
-            }, new RHostClientTestApp(), 50000);
+            using (var hostFactory = new LocalRHostConnector(new RInstallation().GetRInstallPath())) {
+                await _session.StartHostAsync(new RHostStartupInfo {
+                    Name = _testMethod.Name
+                }, new RHostClientTestApp(), 50000);
+            }
         }
 
         public async Task DisposeAsync() {
             await _session.StopHostAsync();
             _sessionProvider.Dispose();
+            _brokerConnector.Dispose();
         }
 
         [CompositeTest]

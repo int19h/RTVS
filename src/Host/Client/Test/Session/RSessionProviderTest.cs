@@ -12,38 +12,42 @@ namespace Microsoft.R.Host.Client.Test.Session {
     public class RSessionProviderTest {
         [Test]
         public void Lifecycle() {
-            var sessionProvider = new RSessionProvider();
-// ReSharper disable once AccessToDisposedClosure
-            Action a = () => sessionProvider.GetOrCreate(new Guid(), new RHostBrokerConnector());
-            a.ShouldNotThrow();
+            using (var brokerConnector = new RHostBrokerConnector()) {
+                var sessionProvider = new RSessionProvider();
+                // ReSharper disable once AccessToDisposedClosure
+                Action a = () => sessionProvider.GetOrCreate(new Guid(), brokerConnector);
+                a.ShouldNotThrow();
 
-            sessionProvider.Dispose();
-            a.ShouldThrow<InvalidOperationException>();
+                sessionProvider.Dispose();
+                a.ShouldThrow<InvalidOperationException>();
+            }
         }
 
         [Test]
         public void GetOrCreate() {
-            var sessionProvider = new RSessionProvider();
-            var guid = new Guid();
-            var session1 = sessionProvider.GetOrCreate(guid, new RHostBrokerConnector());
-            session1.Should().NotBeNull();
+            using (var brokerConnector = new RHostBrokerConnector()) {
+                var sessionProvider = new RSessionProvider();
+                var guid = new Guid();
+                var session1 = sessionProvider.GetOrCreate(guid, brokerConnector);
+                session1.Should().NotBeNull();
 
-            var session2 = sessionProvider.GetOrCreate(guid, new RHostBrokerConnector());
-            session2.Should().BeSameAs(session1);
+                var session2 = sessionProvider.GetOrCreate(guid, brokerConnector);
+                session2.Should().BeSameAs(session1);
 
-            session1.Dispose();
-            var session3 = sessionProvider.GetOrCreate(guid, new RHostBrokerConnector());
-            session3.Should().NotBeSameAs(session1);
-            session3.Id.Should().NotBe(session1.Id);
+                session1.Dispose();
+                var session3 = sessionProvider.GetOrCreate(guid, brokerConnector);
+                session3.Should().NotBeSameAs(session1);
+                session3.Id.Should().NotBe(session1.Id);
+            }
         }
 
         [Test]
         public void ParallelAccess() {
-            RSessionProvider sessionProvider;
-            using (sessionProvider = new RSessionProvider()) {
-                var guids = new[] {new Guid(), new Guid()};
+            using (var brokerConnector = new RHostBrokerConnector())
+            using (var sessionProvider = new RSessionProvider()) {
+                var guids = new[] { new Guid(), new Guid() };
                 ParallelTools.Invoke(100, i => {
-                    var session = sessionProvider.GetOrCreate(guids[i%2], new RHostBrokerConnector());
+                    var session = sessionProvider.GetOrCreate(guids[i % 2], brokerConnector);
                     session.Dispose();
                 });
             }

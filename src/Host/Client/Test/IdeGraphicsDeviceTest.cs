@@ -559,8 +559,9 @@ dev.off()
         }
 
         private async Task ExecuteInSession(string[] inputs, IRSessionCallback app) {
+            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), new RHostBrokerConnector());
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);
@@ -583,8 +584,9 @@ dev.off()
 
         private async Task<IEnumerable<string>> ExportToImageAsync(string[] inputs, string[] format, string[] paths, int widthInPixels, int heightInPixels, int resolution) {
             var app = new RHostClientTestApp { PlotHandler = OnPlot };
+            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), new RHostBrokerConnector());
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);
@@ -611,8 +613,9 @@ dev.off()
 
         private async Task<IEnumerable<string>> ExportToPdfAsync(string[] inputs, string filePath, int width, int height) {
             var app = new RHostClientTestApp { PlotHandler = OnPlot };
+            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), new RHostBrokerConnector());
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);
