@@ -22,7 +22,11 @@ namespace Microsoft.R.Host.Broker {
 
             var host = new WebHostBuilder()
                 .UseConfiguration(Configuration)
-                .UseWebListener(options => options.Listener.AuthenticationManager.AuthenticationSchemes = AuthenticationSchemes.NTLM)
+                .UseWebListener(options => {
+                    options.Listener.AuthenticationManager.AuthenticationSchemes = AuthenticationSchemes.NTLM | AuthenticationSchemes.AllowAnonymous;
+                    options.Listener.TimeoutManager.MinSendBytesPerSecond = uint.MaxValue;
+                    options.Listener.BufferResponses = false;
+                })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<Startup>()
                 .Build();
