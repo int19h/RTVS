@@ -1,14 +1,15 @@
-﻿using System;
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.R.Host.Broker.Tunneling {
-    internal class RHostPipe {
-        //private readonly object _lock = new object();
+    internal class MessagePipe {
         private readonly ConcurrentQueue<byte[]> _hostMessages = new ConcurrentQueue<byte[]>();
         private readonly ConcurrentQueue<byte[]> _clientMessages = new ConcurrentQueue<byte[]>();
 
@@ -16,22 +17,41 @@ namespace Microsoft.R.Host.Broker.Tunneling {
         private Queue<byte[]> _unsentPendingRequests = new Queue<byte[]>();
 
         private byte[] _handshake;
-        private ClientEnd _client;
+        private IMessagePipeEnd _hostEnd, _clientEnd;
 
-        public sealed class HostEnd {
-            private readonly RHostPipe _pipe;
+        private abstract class PipeEnd : IMessagePipeEnd {
+            protected MessagePipe Pipe { get; }
 
-            public HostEnd(RHostPipe pipe) {
-                if (pipe.Host != null) {
-                    throw new InvalidOperationException("Pipe already has a host end");
+            protected PipeEnd(MessagePipe pipe, ref IMessagePipeEnd end) {
+                Pipe = pipe;
+                if (Interlocked.CompareExchange(ref end, this, null) != null) {
+                    throw new InvalidOperationException($"Pipe already has a {GetType().Name}");
                 }
             }
 
-            public void Write(byte[] message) {
+            public abstract void Dispose();
+
+            public abstract Task<byte[]> ReadAsync();
+
+            public abstract void Write(byte[] message);
+        }
+
+        private sealed class HostEnd : PipeEnd {
+            private readonly MessagePipe _pipe;
+
+            public HostEnd(MessagePipe pipe)
+                : base(pipe, ref pipe._hostEnd) {
+            }
+
+            public override void Dispose() {
+                throw new InvalidOperationException("Host end of the pipe should not be disposed.");
+            }
+
+            public override void Write(byte[] message) {
                 _pipe._hostMessages.Enqueue(message);
             }
 
-            public async Task<byte[]> ReadAsync() {
+            public override async Task<byte[]> ReadAsync() {
                 byte[] message;
                 while (!_pipe._clientMessages.TryDequeue(out message)) {
                     await Task.Delay(100);
@@ -41,26 +61,22 @@ namespace Microsoft.R.Host.Broker.Tunneling {
             }
         }
 
-        public sealed class ClientEnd : IDisposable {
-            private readonly RHostPipe _pipe;
+        private sealed class ClientEnd : PipeEnd {
+            private readonly MessagePipe _pipe;
             private bool _isFirstRead = true;
 
-            public ClientEnd(RHostPipe pipe) {
-                if (Interlocked.CompareExchange(ref pipe._client, this, null) != null) {
-                    throw new InvalidOperationException("Pipe already has a client end");
-                }
-
-                _pipe = pipe;
+            public ClientEnd(MessagePipe pipe)
+                : base(pipe, ref pipe._clientEnd) {
             }
 
-            public void Dispose() {
+            public override void Dispose() {
                 var unsent = new Queue<byte[]>(_pipe._sentPendingRequests.OrderBy(kv => kv.Key).Select(kv => kv.Value));
                 _pipe._sentPendingRequests.Clear();
                 Volatile.Write(ref _pipe._unsentPendingRequests, unsent);
-                Volatile.Write(ref _pipe._client, null);
+                Volatile.Write(ref _pipe._clientEnd, null);
             }
 
-            public void Write(byte[] message) {
+            public override void Write(byte[] message) {
                 ulong id, requestId;
                 Parse(message, out id, out requestId);
 
@@ -70,7 +86,7 @@ namespace Microsoft.R.Host.Broker.Tunneling {
                 _pipe._clientMessages.Enqueue(message);
             }
 
-            public async Task<byte[]> ReadAsync() {
+            public override async Task<byte[]> ReadAsync() {
                 var handshake = _pipe._handshake;
                 if (_isFirstRead) {
                     _isFirstRead = false;
@@ -101,13 +117,14 @@ namespace Microsoft.R.Host.Broker.Tunneling {
             }
         }
 
-        public HostEnd Host { get; }
-
-        public RHostPipe() {
-            Host = new HostEnd(this);
+        public MessagePipe() {
         }
 
-        public ClientEnd ConnectClient() {
+        public IMessagePipeEnd ConnectHost() {
+            return new HostEnd(this);
+        }
+
+        public IMessagePipeEnd ConnectClient() {
             return new ClientEnd(this);
         }
 

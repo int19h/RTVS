@@ -9,7 +9,7 @@ using System.Security.Principal;
 using Microsoft.R.Host.Broker.Interpreters;
 
 namespace Microsoft.R.Host.Broker.Sessions {
-    internal class SessionManager {
+    public class SessionManager {
         private readonly InterpreterManager _interpManager;
         private readonly Dictionary<IIdentity, List<Session>> _sessions;
 
@@ -24,6 +24,10 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 _sessions.TryGetValue(user, out userSessions);
                 return userSessions ?? Enumerable.Empty<Session>();
             }
+        }
+
+        public Session GetSession(Guid id) {
+            return _sessions.Values.SelectMany(sessions => sessions).FirstOrDefault(session => session.Id == id);
         }
 
         public Session CreateSession(Guid id, Interpreter interpreter, IIdentity user) {
