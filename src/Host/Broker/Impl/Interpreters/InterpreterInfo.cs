@@ -7,7 +7,7 @@ using Newtonsoft.Json.Converters;
 
 namespace Microsoft.R.Host.Broker.Interpreters {
     public class InterpreterInfo {
-        public string Name { get; set; }
+        public string Id { get; set; }
 
         public string Path { get; set; }
 

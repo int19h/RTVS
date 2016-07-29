@@ -20,6 +20,8 @@ namespace Microsoft.R.Host.Broker {
                 .Configure<InterpretersOptions>(Program.Configuration.GetSection("Interpreters"))
                 .Configure<SecurityOptions>(Program.Configuration.GetSection("Security"));
 
+            services.AddSingleton<InterpreterManager>();
+
             services.AddSingleton<IAuthorizationHandler, RUserAuthorizationHandler>();
 
             services.AddAuthorization(options => options.AddPolicy(Policies.RUser, policy =>
