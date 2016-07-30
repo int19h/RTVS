@@ -53,7 +53,7 @@ namespace Microsoft.R.Host.Broker {
 
             app.UseWebSockets(new WebSocketOptions {
                 ReplaceFeature = true,
-                KeepAliveInterval = TimeSpan.FromMilliseconds(100),
+                KeepAliveInterval = TimeSpan.FromMilliseconds(1000000000),
                 ReceiveBufferSize = 0x10000
             });
 

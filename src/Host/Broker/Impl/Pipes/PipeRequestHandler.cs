@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.WebSockets.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.R.Host.Broker.Sessions;
 
@@ -37,10 +38,14 @@ namespace Microsoft.R.Host.Broker.Pipes {
             var session = _sessionManager.GetSession(id);
             var pipe = session.ConnectHost();
 
-            //context.Response.Headers[Constants.Headers.Upgrade] = Constants.Headers.UpgradeWebSocket;
-            //context.Response.Headers[Constants.Headers.Connection] = Constants.Headers.ConnectionUpgrade;
+            //string key = string.Join(", ", context.Request.Headers[Constants.Headers.SecWebSocketKey]);
+            //var responseHeaders = HandshakeHelpers.GenerateResponseHeaders(key, "Microsoft.R.Host");
+            //foreach (var header in responseHeaders) {
+            //    context.Response.Headers[header.Key] = header.Value;
+            //}
             //var upgrade = context.Features.Get<IHttpUpgradeFeature>();
             //var stream = await upgrade.UpgradeAsync();
+            //await Task.Delay(1000);
             //await stream.FlushAsync();
 
             var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
