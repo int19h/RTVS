@@ -6,16 +6,20 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Common.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.R.Host.Broker.Interpreters;
-using Microsoft.R.Host.Broker.Tunneling;
+using Microsoft.R.Host.Broker.Pipes;
 
 namespace Microsoft.R.Host.Broker.Sessions {
     public class Session {
         private const string RHostExe = "Microsoft.R.Host.exe";
 
         private Process _process;
-        private readonly MessagePipe _pipe;
+        private MessagePipe _pipe;
+
+        public SessionManager Manager { get; }
 
         public Guid Id { get; }
 
@@ -25,20 +29,30 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public Process Process => _process;
 
-        public Session(Guid id, Interpreter interpreter, IIdentity user) {
+        public SessionInfo Info => new SessionInfo {
+            Id = Id,
+            InterpreterId = Interpreter.Info.Id
+        };
+
+        internal Session(SessionManager manager, Guid id, Interpreter interpreter, IIdentity user) {
+            Manager = manager;
             Id = id;
             Interpreter = interpreter;
             User = user;
         }
 
-        public void Start() {
+        public void Start(IUrlHelper urlHelper) {
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
+
+            //var pipeWsUri = new Uri(new Uri("ws://localhost:5000"), urlHelper.Action("Get", "Pipes", new { id = Id }));
+
+            var pipeWsUri = $"ws://localhost:5000/pipes/{Id}";
 
             var psi = new ProcessStartInfo(rhostExePath) {
                 UseShellExecute = false,
                 CreateNoWindow = false,
-                Arguments = string.Format("--rhost-name BrokerSession{0} --rhost-connect ws://localhost/tunnels/{0}", Id)
+                Arguments = $"--rhost-name BrokerSession{Id} --rhost-connect {pipeWsUri}"
             };
 
             var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
@@ -46,6 +60,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
+            _pipe = new MessagePipe();
             _process = Process.Start(psi);
         }
 

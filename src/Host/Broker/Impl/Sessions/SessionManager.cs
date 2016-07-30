@@ -6,12 +6,15 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using System.Security.Principal;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.R.Host.Broker.Interpreters;
 
 namespace Microsoft.R.Host.Broker.Sessions {
     public class SessionManager {
         private readonly InterpreterManager _interpManager;
-        private readonly Dictionary<IIdentity, List<Session>> _sessions;
+        private readonly Dictionary<IIdentity, List<Session>> _sessions = new Dictionary<IIdentity, List<Session>>();
 
         [ImportingConstructor]
         public SessionManager(InterpreterManager interpManager) {
@@ -30,7 +33,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             return _sessions.Values.SelectMany(sessions => sessions).FirstOrDefault(session => session.Id == id);
         }
 
-        public Session CreateSession(Guid id, Interpreter interpreter, IIdentity user) {
+        public Session CreateSession(Guid id, Interpreter interpreter, IIdentity user, IUrlHelper urlHelper) {
             Session session;
 
             lock (_sessions) {
@@ -40,11 +43,11 @@ namespace Microsoft.R.Host.Broker.Sessions {
                     _sessions[user] = userSessions = new List<Session>();
                 }
 
-                session = new Session(id, interpreter, user);
+                session = new Session(this, id, interpreter, user);
                 userSessions.Add(session);
             }
 
-            session.Start();
+            session.Start(urlHelper);
             return session;
         }
     }

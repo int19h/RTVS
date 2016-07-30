@@ -4,7 +4,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Microsoft.R.Host.Broker.Tunneling {
+namespace Microsoft.R.Host.Broker.Pipes {
     public interface IMessagePipeEnd : IDisposable {
         Task<byte[]> ReadAsync();
         void Write(byte[] message);

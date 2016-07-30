@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.R.Host.Broker.Tunneling {
+namespace Microsoft.R.Host.Broker.Pipes {
     internal class MessagePipe {
         private readonly ConcurrentQueue<byte[]> _hostMessages = new ConcurrentQueue<byte[]>();
         private readonly ConcurrentQueue<byte[]> _clientMessages = new ConcurrentQueue<byte[]>();
@@ -37,8 +37,6 @@ namespace Microsoft.R.Host.Broker.Tunneling {
         }
 
         private sealed class HostEnd : PipeEnd {
-            private readonly MessagePipe _pipe;
-
             public HostEnd(MessagePipe pipe)
                 : base(pipe, ref pipe._hostEnd) {
             }
@@ -48,12 +46,12 @@ namespace Microsoft.R.Host.Broker.Tunneling {
             }
 
             public override void Write(byte[] message) {
-                _pipe._hostMessages.Enqueue(message);
+                Pipe._hostMessages.Enqueue(message);
             }
 
             public override async Task<byte[]> ReadAsync() {
                 byte[] message;
-                while (!_pipe._clientMessages.TryDequeue(out message)) {
+                while (!Pipe._clientMessages.TryDequeue(out message)) {
                     await Task.Delay(100);
                 }
 
@@ -62,7 +60,6 @@ namespace Microsoft.R.Host.Broker.Tunneling {
         }
 
         private sealed class ClientEnd : PipeEnd {
-            private readonly MessagePipe _pipe;
             private bool _isFirstRead = true;
 
             public ClientEnd(MessagePipe pipe)
@@ -70,10 +67,10 @@ namespace Microsoft.R.Host.Broker.Tunneling {
             }
 
             public override void Dispose() {
-                var unsent = new Queue<byte[]>(_pipe._sentPendingRequests.OrderBy(kv => kv.Key).Select(kv => kv.Value));
-                _pipe._sentPendingRequests.Clear();
-                Volatile.Write(ref _pipe._unsentPendingRequests, unsent);
-                Volatile.Write(ref _pipe._clientEnd, null);
+                var unsent = new Queue<byte[]>(Pipe._sentPendingRequests.OrderBy(kv => kv.Key).Select(kv => kv.Value));
+                Pipe._sentPendingRequests.Clear();
+                Volatile.Write(ref Pipe._unsentPendingRequests, unsent);
+                Volatile.Write(ref Pipe._clientEnd, null);
             }
 
             public override void Write(byte[] message) {
@@ -81,13 +78,13 @@ namespace Microsoft.R.Host.Broker.Tunneling {
                 Parse(message, out id, out requestId);
 
                 byte[] request;
-                _pipe._sentPendingRequests.TryRemove(requestId, out request);
+                Pipe._sentPendingRequests.TryRemove(requestId, out request);
 
-                _pipe._clientMessages.Enqueue(message);
+                Pipe._clientMessages.Enqueue(message);
             }
 
             public override async Task<byte[]> ReadAsync() {
-                var handshake = _pipe._handshake;
+                var handshake = Pipe._handshake;
                 if (_isFirstRead) {
                     _isFirstRead = false;
                     if (handshake != null) {
@@ -96,10 +93,10 @@ namespace Microsoft.R.Host.Broker.Tunneling {
                 }
 
                 byte[] message;
-                if (_pipe._unsentPendingRequests.Count != 0) {
-                    message = _pipe._unsentPendingRequests.Dequeue();
+                if (Pipe._unsentPendingRequests.Count != 0) {
+                    message = Pipe._unsentPendingRequests.Dequeue();
                 } else {
-                    while (!_pipe._hostMessages.TryDequeue(out message)) {
+                    while (!Pipe._hostMessages.TryDequeue(out message)) {
                         await Task.Delay(100);
                     }
                 }
@@ -108,9 +105,9 @@ namespace Microsoft.R.Host.Broker.Tunneling {
                 Parse(message, out id, out requestId);
 
                 if (handshake == null) {
-                    _pipe._handshake = message;
+                    Pipe._handshake = message;
                 } else if (requestId == ulong.MaxValue) {
-                    _pipe._sentPendingRequests.TryAdd(id, message);
+                    Pipe._sentPendingRequests.TryAdd(id, message);
                 }
 
                 return message;
