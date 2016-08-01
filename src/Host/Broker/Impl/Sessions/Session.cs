@@ -47,7 +47,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             //var pipeWsUri = new Uri(new Uri("ws://localhost:5000"), urlHelper.Action("Get", "Pipes", new { id = Id }));
 
-            var pipeWsUri = $"ws://localhost:5000/pipes/{Id}";
+            string serverUrl = Program.Configuration["server.urls"];
+            var pipeWsUri = new UriBuilder(serverUrl) { Scheme = "ws", Path = $"pipes/{Id}" }.Uri;
 
             var psi = new ProcessStartInfo(rhostExePath) {
                 UseShellExecute = false,

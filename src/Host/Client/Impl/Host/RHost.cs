@@ -23,6 +23,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.WebSockets.Client;
 using System.Net.WebSockets;
+using System.Net.Security;
+using System.Net;
 
 namespace Microsoft.R.Host.Client {
     public sealed partial class RHost : IDisposable, IRExpressionEvaluator, IRBlobService {
@@ -531,6 +533,8 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
+        private static volatile int lastPort = 5000;
+
         public async Task CreateAndRun(string rHome, string rhostDirectory = null, string rCommandLineArguments = null, int timeout = 3000, CancellationToken ct = default(CancellationToken)) {
             await TaskUtilities.SwitchToBackgroundThread();
 
@@ -559,7 +563,9 @@ namespace Microsoft.R.Host.Client {
             //}
 
             //psi.Arguments += Invariant($" --rhost-connect ws://127.0.0.1:{server.Port}");
-            psi.Arguments += Invariant($" --server.urls ws://localhost:5000");
+
+            int port = ++lastPort;
+            psi.Arguments += Invariant($" --server.urls http://localhost:{port}");
 
             if (!showConsole) {
                 //psi.CreateNoWindow = true;
@@ -576,23 +582,30 @@ namespace Microsoft.R.Host.Client {
                 _process.Exited += delegate { Dispose(); };
 
                 try {
-                    var client = new HttpClient {
-                        BaseAddress = new Uri("http://localhost:5000")
+                    var clientHandler = new HttpClientHandler { UseDefaultCredentials = true };
+                    var client = new HttpClient(clientHandler) {
+                        BaseAddress = new Uri($"http://localhost:{port}")
                     };
                     client.DefaultRequestHeaders.Accept.Clear();
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                     Guid sessionId = new Guid("DE9D06F1-A00C-448E-A199-D3784FBA1779");
                     const string request = @"{""interpreterId"": """"}";
-                    var response = await client.PostAsync("/sessions/" + sessionId, new StringContent(request, Encoding.UTF8, "application/json"));
+                    var response = await client.PutAsync("/sessions/" + sessionId, new StringContent(request, Encoding.UTF8, "application/json"));
 
                     if (!response.IsSuccessStatusCode) {
                         throw new Exception(response.StatusCode + " " + response.ReasonPhrase);
                     }
 
-                    var pipeUri = new Uri("ws://localhost:5000/sessions/" + sessionId + "/pipe");
-                    var wsClient = new WebSocketClient();
-                    wsClient.KeepAliveInterval = HeartbeatTimeout;
+                    var pipeUri = new Uri($"ws://localhost:{port}/sessions/" + sessionId + "/pipe");
+                    var wsClient = new WebSocketClient {
+                        KeepAliveInterval = HeartbeatTimeout,
+                        SubProtocols = { "Microsoft.R.Host" },
+                        ConfigureRequest = httpRequest => {
+                            httpRequest.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
+                            httpRequest.Credentials = CredentialCache.DefaultNetworkCredentials;
+                        }
+                    };
                     var socket = await wsClient.ConnectAsync(pipeUri, ct);
                     CreateWebSocketMessageTransport(socket);
 

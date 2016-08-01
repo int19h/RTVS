@@ -9,6 +9,7 @@ using System.Security.Principal;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.R.Host.Broker.Interpreters;
 
 namespace Microsoft.R.Host.Broker.Sessions {
