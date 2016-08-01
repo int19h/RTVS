@@ -24,7 +24,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             _sessionManager = sessionManager;
         }
 
-        public async Task HandleRequest(HttpContext context) {
+        public async Task HandleRequest(HttpContext context, bool isHost) {
             var httpResponse = context.Features.Get<IHttpResponseFeature>();
 
             if (!context.WebSockets.IsWebSocketRequest) {
@@ -36,7 +36,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             var id = Guid.Parse((string)context.GetRouteValue("id"));
 
             var session = _sessionManager.GetSession(id);
-            var pipe = session.ConnectHost();
+            var pipe = isHost ? session.ConnectHost() : session.ConnectClient();
 
             //string key = string.Join(", ", context.Request.Headers[Constants.Headers.SecWebSocketKey]);
             //var responseHeaders = HandshakeHelpers.GenerateResponseHeaders(key, "Microsoft.R.Host");

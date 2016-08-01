@@ -4,9 +4,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.R.Host.Broker.Interpreters;
+using Microsoft.R.Host.Broker.Pipes;
 using Microsoft.R.Host.Broker.Security;
 
 namespace Microsoft.R.Host.Broker.Sessions {
@@ -31,6 +33,13 @@ namespace Microsoft.R.Host.Broker.Sessions {
             var interp = _interpManager.Interpreters.First(ip => ip.Info.Id ==  request.InterpreterId);
             var session = _sessionManager.CreateSession(id, interp, User.Identity, Url);
             return session.Info;
+        }
+
+        [HttpGet("{id}/pipe")]
+        public Task GetPipe(Guid id, [FromServices] PipeRequestHandler pipes) {
+            //var interp = _interpManager.Interpreters.First(ip => ip.Info.Id == request.InterpreterId);
+            //var session = _sessionManager.GetSession(id);
+            return pipes.HandleRequest(HttpContext, false);
         }
     }
 }

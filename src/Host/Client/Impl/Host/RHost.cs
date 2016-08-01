@@ -17,10 +17,12 @@ using Microsoft.Common.Core.Shell;
 using Microsoft.R.Host.Client.Host;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using WebSocketSharp;
-using WebSocketSharp.Server;
 using static System.FormattableString;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using Microsoft.AspNetCore.WebSockets.Client;
+using System.Net.WebSockets;
 
 namespace Microsoft.R.Host.Client {
     public sealed partial class RHost : IDisposable, IRExpressionEvaluator, IRBlobService {
@@ -517,13 +519,13 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
-        private WebSocketMessageTransport CreateWebSocketMessageTransport() {
+        private WebSocketMessageTransport CreateWebSocketMessageTransport(WebSocket socket) {
             lock (_transportLock) {
                 if (_transport != null) {
                     throw new MessageTransportException("More than one incoming connection.");
                 }
 
-                var transport = new WebSocketMessageTransport();
+                var transport = new WebSocketMessageTransport(socket);
                 _transportTcs.SetResult(_transport = transport);
                 return transport;
             }
@@ -535,49 +537,11 @@ namespace Microsoft.R.Host.Client {
             rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
             rCommandLineArguments = rCommandLineArguments ?? string.Empty;
 
-            string rhostExe = Path.Combine(rhostDirectory, RHostExe);
-            string rBinPath = Path.Combine(rHome, RBinPathX64);
+            string rhostExe = Path.Combine(rhostDirectory, "Microsoft.R.Host.Broker.exe");
+            //string rBinPath = Path.Combine(rHome, RBinPathX64);
 
             if (!File.Exists(rhostExe)) {
                 throw new RHostBinaryMissingException();
-            }
-
-            // Grab an available port from the ephemeral port range (per RFC 6335 8.1.2) for the server socket.
-
-            WebSocketServer server = null;
-            var rnd = new Random();
-            const int ephemeralRangeStart = 49152;
-            var ports =
-                from port in Enumerable.Range(ephemeralRangeStart, 0x10000 - ephemeralRangeStart)
-                let pos = rnd.NextDouble()
-                orderby pos
-                select port;
-
-            foreach (var port in ports) {
-                ct.ThrowIfCancellationRequested();
-
-                server = new WebSocketServer(port) {
-                    ReuseAddress = false,
-                    WaitTime = HeartbeatTimeout,
-                };
-                server.AddWebSocketService("/", CreateWebSocketMessageTransport);
-
-                try {
-                    server.Start();
-                    break;
-                } catch (SocketException ex) {
-                    if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse) {
-                        server = null;
-                    } else {
-                        throw new MessageTransportException(ex);
-                    }
-                } catch (WebSocketException ex) {
-                    throw new MessageTransportException(ex);
-                }
-            }
-
-            if (server == null) {
-                throw new MessageTransportException(new SocketException((int)SocketError.AddressAlreadyInUse));
             }
 
             var psi = new ProcessStartInfo {
@@ -585,20 +549,20 @@ namespace Microsoft.R.Host.Client {
                 UseShellExecute = false
             };
 
-            var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
-            NativeMethods.GetShortPathName(rHome, shortHome, shortHome.Capacity);
-            psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
+            //var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
+            //NativeMethods.GetShortPathName(rHome, shortHome, shortHome.Capacity);
+            //psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
+            //psi.EnvironmentVariables["PATH"] = rBinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
-            psi.EnvironmentVariables["PATH"] = rBinPath + ";" + Environment.GetEnvironmentVariable("PATH");
+            //if (_name != null) {
+            //    psi.Arguments += " --rhost-name " + _name;
+            //}
 
-            if (_name != null) {
-                psi.Arguments += " --rhost-name " + _name;
-            }
-
-            psi.Arguments += Invariant($" --rhost-connect ws://127.0.0.1:{server.Port}");
+            //psi.Arguments += Invariant($" --rhost-connect ws://127.0.0.1:{server.Port}");
+            psi.Arguments += Invariant($" --server.urls ws://localhost:5000");
 
             if (!showConsole) {
-                psi.CreateNoWindow = true;
+                //psi.CreateNoWindow = true;
             }
 
             if (!string.IsNullOrWhiteSpace(rCommandLineArguments)) {
@@ -612,6 +576,26 @@ namespace Microsoft.R.Host.Client {
                 _process.Exited += delegate { Dispose(); };
 
                 try {
+                    var client = new HttpClient {
+                        BaseAddress = new Uri("http://localhost:5000")
+                    };
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    Guid sessionId = new Guid("DE9D06F1-A00C-448E-A199-D3784FBA1779");
+                    const string request = @"{""interpreterId"": """"}";
+                    var response = await client.PostAsync("/sessions/" + sessionId, new StringContent(request, Encoding.UTF8, "application/json"));
+
+                    if (!response.IsSuccessStatusCode) {
+                        throw new Exception(response.StatusCode + " " + response.ReasonPhrase);
+                    }
+
+                    var pipeUri = new Uri("ws://localhost:5000/sessions/" + sessionId + "/pipe");
+                    var wsClient = new WebSocketClient();
+                    wsClient.KeepAliveInterval = HeartbeatTimeout;
+                    var socket = await wsClient.ConnectAsync(pipeUri, ct);
+                    CreateWebSocketMessageTransport(socket);
+
                     ct = CancellationTokenSource.CreateLinkedTokenSource(ct, _cts.Token).Token;
 
                     // Timeout increased to allow more time in test and code coverage runs.

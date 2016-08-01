@@ -60,7 +60,7 @@ namespace Microsoft.R.Host.Broker {
             app.UseMvc();
 
             var routeBuilder = new RouteBuilder(app)
-                .MapGet("pipes/{id:guid}", pipeRequestHandler.HandleRequest);
+                .MapGet("pipes/{id:guid}", context => pipeRequestHandler.HandleRequest(context, true));
             app.UseRouter(routeBuilder.Build());
         }
     }
