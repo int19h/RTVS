@@ -12,6 +12,7 @@
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
+    <StartArguments>--server.urls http://localhost:5000</StartArguments>
   </PropertyGroup>
   <Import Project="..\..\..\R.Settings.targets" />
   <PropertyGroup>
