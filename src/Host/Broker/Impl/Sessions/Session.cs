@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Common.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         private Process _process;
         private MessagePipe _pipe;
+        private IMessagePipeEnd _hostEnd;
 
         public SessionManager Manager { get; }
 
@@ -53,7 +55,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
             var psi = new ProcessStartInfo(rhostExePath) {
                 UseShellExecute = false,
                 CreateNoWindow = false,
-                Arguments = $"--rhost-name BrokerSession{Id} --rhost-connect {pipeWsUri}"
+                Arguments = $"--rhost-name BrokerSession{Id} --rhost-connect {pipeWsUri}",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
             };
 
             var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
@@ -62,7 +66,13 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
             _pipe = new MessagePipe();
+            var hostEnd = _pipe.ConnectHost();
+
             _process = Process.Start(psi);
+            _process.Exited += delegate { _pipe = null; };
+
+            var hostToClient = HostToClientWorker(_process.StandardInput.BaseStream, hostEnd);
+            var clientToHost = ClientToHostWorker(_process.StandardOutput.BaseStream, hostEnd);
         }
 
         public IMessagePipeEnd ConnectHost() {
@@ -79,6 +89,36 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
 
             return _pipe.ConnectClient();
+        }
+
+        private async Task ClientToHostWorker(Stream stream, IMessagePipeEnd pipe) {
+            while (true) {
+                var message = await pipe.ReadAsync();
+                var sizeBuf = BitConverter.GetBytes(message.Length);
+                try {
+                    await stream.WriteAsync(sizeBuf, 0, sizeBuf.Length);
+                    await stream.WriteAsync(message, 0, message.Length);
+                } catch (IOException) {
+                    break;
+                }
+            }
+        }
+
+        private async Task HostToClientWorker(Stream stream, IMessagePipeEnd pipe) {
+            var sizeBuf = new byte[sizeof(int)];
+            while (true) {
+                if (await stream.ReadAsync(sizeBuf, 0, sizeBuf.Length) != sizeBuf.Length) {
+                    break;
+                }
+                int size = BitConverter.ToInt32(sizeBuf, 0);
+
+                var message = new byte[size];
+                if (await stream.ReadAsync(message, 0, message.Length) != message.Length) {
+                    break;
+                }
+
+                pipe.Write(message);
+            }
         }
     }
 }
