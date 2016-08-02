@@ -2,26 +2,31 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Security;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.WebSockets.Client;
 using Microsoft.Common.Core;
 using Microsoft.Common.Core.Logging;
-using WebSocketSharp;
-using WebSocketSharp.Server;
+using Newtonsoft.Json;
 using static System.FormattableString;
 
 namespace Microsoft.R.Host.Client.Host {
     internal sealed class LocalRHostConnector : IRHostConnector {
         public const int DefaultPort = 5118;
-        public const string RHostExe = "Microsoft.R.Host.exe";
+        public const string RHostBrokerExe = "Microsoft.R.Host.Broker.exe";
         public const string RBinPathX64 = @"bin\x64";
 
-        private static readonly bool ShowConsole = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RTVS_HOST_CONSOLE"));
+        private static readonly bool ShowConsole = true; //!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RTVS_HOST_CONSOLE"));
         private static readonly TimeSpan HeartbeatTimeout =
 #if DEBUG
             // In debug mode, increase the timeout significantly, so that when the host is paused in debugger,
@@ -31,135 +36,121 @@ namespace Microsoft.R.Host.Client.Host {
             TimeSpan.FromSeconds(5);
 #endif
 
+        private static readonly ConcurrentDictionary<int, LocalRHostConnector> _connectors = new ConcurrentDictionary<int, LocalRHostConnector>();
+
         private readonly string _rhostDirectory;
         private readonly string _rHome;
         private readonly LinesLog _log;
 
+        private Process _brokerProcess;
+        private HttpClient _broker;
+
         public LocalRHostConnector(string rHome, string rhostDirectory = null) {
-            _rhostDirectory = rhostDirectory;
+            _rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
             _rHome = rHome;
             _log = new LinesLog(FileLogWriter.InTempFolder("Microsoft.R.Host.BrokerConnector"));
+
+            _broker = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true }) {
+                Timeout = TimeSpan.FromSeconds(1)
+            };
+            _broker.DefaultRequestHeaders.Accept.Clear();
+            _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
-        public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
-            await TaskUtilities.SwitchToBackgroundThread();
+        private void ReserveBrokerUri() {
+            while (true) {
+                var usedPorts = _connectors.Keys;
 
-            var rhostDirectory = _rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
-            rCommandLineArguments = rCommandLineArguments ?? string.Empty;
+                int port = DefaultPort;
+                while (usedPorts.Contains(port)) {
+                    ++port;
+                }
 
-            string rhostExe = Path.Combine(rhostDirectory, RHostExe);
-            string rBinPath = Path.Combine(_rHome, RBinPathX64);
+                if (_connectors.TryAdd(port, this)) {
+                    _broker.BaseAddress = new Uri($"http://localhost:{port}");
+                    return;
+                }
+            }
+        }
 
-            if (!File.Exists(rhostExe)) {
+        public async Task StartBrokerAsync() {
+            string rhostBrokerExe = Path.Combine(_rhostDirectory, RHostBrokerExe);
+            if (!File.Exists(rhostBrokerExe)) {
                 throw new RHostBinaryMissingException();
             }
 
-            // Grab an available port from the ephemeral port range (per RFC 6335 8.1.2) for the server socket.
+            await TaskUtilities.SwitchToBackgroundThread();
 
-            WebSocketServer server = null;
-            var rnd = new Random();
-            const int ephemeralRangeStart = 49152;
-            var ports =
-                from port in Enumerable.Range(ephemeralRangeStart, 0x10000 - ephemeralRangeStart)
-                let pos = rnd.NextDouble()
-                orderby pos
-                select port;
-
-            var transportTcs = new TaskCompletionSource<IMessageTransport>();
-            foreach (var port in ports) {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                server = new WebSocketServer(port) {
-                    ReuseAddress = false,
-                    WaitTime = HeartbeatTimeout,
-                };
-
-                server.AddWebSocketService("/", () => CreateWebSocketMessageTransport(transportTcs));
-
-                try {
-                    server.Start();
-                    break;
-                } catch (SocketException ex) {
-                    if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse) {
-                        server = null;
-                    } else {
-                        throw new MessageTransportException(ex);
-                    }
-                } catch (WebSocketException ex) {
-                    throw new MessageTransportException(ex);
-                }
-            }
-
-            if (server == null) {
-                throw new MessageTransportException(new SocketException((int)SocketError.AddressAlreadyInUse));
-            }
+            ReserveBrokerUri();
 
             var psi = new ProcessStartInfo {
-                FileName = rhostExe,
-                UseShellExecute = false
+                FileName = rhostBrokerExe,
+                UseShellExecute = false,
+                Arguments = $" --server.urls {_broker.BaseAddress}"
             };
-
-            var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
-            NativeMethods.GetShortPathName(_rHome, shortHome, shortHome.Capacity);
-            psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
-
-            psi.EnvironmentVariables["PATH"] = rBinPath + ";" + Environment.GetEnvironmentVariable("PATH");
-
-            if (name != null) {
-                psi.Arguments += " --rhost-name " + name;
-            }
-
-            psi.Arguments += Invariant($" --rhost-connect ws://127.0.0.1:{server.Port}");
 
             if (!ShowConsole) {
                 psi.CreateNoWindow = true;
             }
 
-            if (!string.IsNullOrWhiteSpace(rCommandLineArguments)) {
-                psi.Arguments += Invariant($" {rCommandLineArguments}");
+            _brokerProcess = Process.Start(psi);
+
+            for (int i = 0; i < 100; ++i) {
+                await Task.Delay(1000);
+                try {
+                    await _broker.GetAsync("/interpreters");
+                    return;
+                } catch (OperationCanceledException) {
+                }
             }
 
-            var process = Process.Start(psi);
-            _log.RHostProcessStarted(psi);
-            process.EnableRaisingEvents = true;
-
-            // Timeout increased to allow more time in test and code coverage runs.
-            await Task.WhenAny(transportTcs.Task, Task.Delay(timeout, cancellationToken)).Unwrap();
-            if (!transportTcs.Task.IsCompleted) {
-                _log.FailedToConnectToRHost();
-                throw new RHostTimeoutException("Timed out waiting for R host process to connect");
+            try {
+                _brokerProcess.Kill();
+            } catch (Exception) {
             }
+
+            throw new RHostTimeoutException("Couldn't start broker process");
+        }
+
+        public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
+            await TaskUtilities.SwitchToBackgroundThread();
+
+            if (_brokerProcess?.HasExited != false) {
+                throw new InvalidOperationException("Broker process is not running - call StartBrokerAsync first");
+            }
+
+            rCommandLineArguments = rCommandLineArguments ?? string.Empty;
+
+            var sessionId = Guid.NewGuid();
+            var request = new { InterpreterId = "" };
+            var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
+
+            (await _broker.PutAsync($"/sessions/{sessionId}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
+
+            var wsClient = new WebSocketClient {
+                KeepAliveInterval = HeartbeatTimeout,
+                SubProtocols = { "Microsoft.R.Host" },
+                ConfigureRequest = httpRequest => {
+                    httpRequest.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
+                    httpRequest.Credentials = CredentialCache.DefaultNetworkCredentials;
+                }
+            };
+
+            var pipeUri = new UriBuilder(_broker.BaseAddress) {
+                Scheme = "ws",
+                Path = $"sessions/{sessionId}/pipe"
+            }.Uri;
+            var socket = await wsClient.ConnectAsync(pipeUri, cancellationToken);
+
+            var transport = new WebSocketMessageTransport(socket);
 
             var cts = new CancellationTokenSource();
             cts.Token.Register(() => {
-                if (!process.HasExited) {
-                    try {
-                        process.WaitForExit(500);
-                        if (!process.HasExited) {
-                            process.Kill();
-                            process.WaitForExit();
-                        }
-                    } catch (InvalidOperationException) { }
-                }
                 _log.RHostProcessExited();
             });
 
-            var host = new RHost(name, callbacks, transportTcs.Task.Result, process.Id, cts);
-            process.Exited += delegate { host.Dispose(); };
+            var host = new RHost(name, callbacks, transport, null, cts);
             return host;
-        }
-
-
-        private static WebSocketMessageTransport CreateWebSocketMessageTransport(TaskCompletionSource<IMessageTransport> transportTcs) {
-            lock (transportTcs) {
-                if (transportTcs.Task.IsCompleted) {
-                    throw new MessageTransportException("More than one incoming connection.");
-                }
-
-                var transport = new WebSocketMessageTransport();
-                transportTcs.SetResult(transport);
-                return transport;
-            }
         }
     }
 }

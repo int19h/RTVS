@@ -71,8 +71,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
             _process = Process.Start(psi);
             _process.Exited += delegate { _pipe = null; };
 
-            var hostToClient = HostToClientWorker(_process.StandardInput.BaseStream, hostEnd);
-            var clientToHost = ClientToHostWorker(_process.StandardOutput.BaseStream, hostEnd);
+            var clientToHost = ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd);
+            var hostToClient = HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd);
         }
 
         public IMessagePipeEnd ConnectHost() {
@@ -98,6 +98,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 try {
                     await stream.WriteAsync(sizeBuf, 0, sizeBuf.Length);
                     await stream.WriteAsync(message, 0, message.Length);
+                    await stream.FlushAsync();
                 } catch (IOException) {
                     break;
                 }

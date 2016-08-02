@@ -20,10 +20,6 @@ using System.Collections.Generic;
 
 namespace Microsoft.R.Host.Client {
     public sealed partial class RHost : IDisposable, IRExpressionEvaluator, IRBlobService {
-        public const int DefaultPort = 5118;
-        public const string RHostExe = "Microsoft.R.Host.exe";
-        public const string RBinPathX64 = @"bin\x64";
-
         private static readonly Task<REvaluationResult> RhostDisconnectedEvaluationResult = TaskUtilities.CreateCanceled<REvaluationResult>(new RHostDisconnectedException());
         private static readonly Task<ulong> RhostDisconnectedSendBlobResult = TaskUtilities.CreateCanceled<ulong>(new RHostDisconnectedException());
 

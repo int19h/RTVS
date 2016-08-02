@@ -20,7 +20,11 @@ namespace Microsoft.R.Host.Client.Host {
 
         public void SwitchToLocalBroker(string rBasePath, string rHostDirectory = null) {
             var installPath = new RInstallation().GetRInstallPath(rBasePath, new SupportedRVersionRange());
-            _hostConnector = new LocalRHostConnector(installPath, rHostDirectory);
+
+            var connector = new LocalRHostConnector(installPath, rHostDirectory);
+            connector.StartBrokerAsync().GetAwaiter().GetResult();
+
+            _hostConnector = connector;
             BrokerUri = new Uri(installPath);
             BrokerChanged?.Invoke(this, new EventArgs());
         }
