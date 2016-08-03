@@ -12,9 +12,9 @@ namespace Microsoft.R.Host.Broker.Lifetime {
 
         private CancellationTokenSource _cts;
 
-        public LifetimeManager(IOptions<LifetimeOptions> options, ILoggerFactory loggerFactory) {
+        public LifetimeManager(IOptions<LifetimeOptions> options, ILogger<LifetimeManager> logger) {
             _options = options;
-            _logger = loggerFactory.CreateLogger<LifetimeManager>();
+            _logger = logger;
 
             Ping();
         }
