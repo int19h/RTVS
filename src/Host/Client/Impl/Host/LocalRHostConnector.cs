@@ -86,7 +86,7 @@ namespace Microsoft.R.Host.Client.Host {
             var psi = new ProcessStartInfo {
                 FileName = rhostBrokerExe,
                 UseShellExecute = false,
-                Arguments = $" --server.urls {_broker.BaseAddress}"
+                Arguments = $" --server.urls {_broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}"
             };
 
             if (!ShowConsole) {
@@ -99,7 +99,7 @@ namespace Microsoft.R.Host.Client.Host {
                 await Task.Delay(1000);
                 try {
                     await PingAsync();
-                    Task.Run(PingWorker).DoNotWait();
+                    //Task.Run(PingWorker).DoNotWait();
                     return;
                 } catch (OperationCanceledException) {
                 }
@@ -140,7 +140,13 @@ namespace Microsoft.R.Host.Client.Host {
             var request = new { InterpreterId = "" };
             var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
 
-            (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
+            try {
+                (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
+            } catch (HttpRequestException) {
+                throw;
+            } catch (OperationCanceledException) {
+                throw;
+            }
 
             var wsClient = new WebSocketClient {
                 KeepAliveInterval = HeartbeatTimeout,

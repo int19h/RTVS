@@ -29,9 +29,9 @@ namespace Microsoft.R.Host.Broker {
 
         public void ConfigureServices(IServiceCollection services) {
             services.AddOptions()
-                .Configure<LifetimeOptions>(Program.Configuration.GetSection("Lifetime"))
-                .Configure<SecurityOptions>(Program.Configuration.GetSection("Security"))
-                .Configure<InterpretersOptions>(Program.Configuration.GetSection("Interpreters"));
+                .Configure<LifetimeOptions>(Program.Configuration.GetSection("lifetime"))
+                .Configure<SecurityOptions>(Program.Configuration.GetSection("security"))
+                .Configure<InterpretersOptions>(Program.Configuration.GetSection("interpreters"));
 
             services.AddSingleton<LifetimeManager>();
 
@@ -54,6 +54,8 @@ namespace Microsoft.R.Host.Broker {
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, LifetimeManager lifetimeManager) {
             loggerFactory.AddConsole(LogLevel.Trace);
             loggerFactory.AddDebug();
+
+            lifetimeManager.Start();
 
             app.UseWebSockets(new WebSocketOptions {
                 ReplaceFeature = true,

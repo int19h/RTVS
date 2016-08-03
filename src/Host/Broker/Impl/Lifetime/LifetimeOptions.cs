@@ -5,6 +5,8 @@ using System.Collections.Generic;
 
 namespace Microsoft.R.Host.Broker.Lifetime {
     public class LifetimeOptions {
-        public int PingTimeout { get; set; } = 5000;
+        public int? PingTimeout { get; set; }
+
+        public int? ParentProcessID { get; set; }
     }
 }

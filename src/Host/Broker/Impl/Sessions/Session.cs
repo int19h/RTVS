@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -88,7 +89,12 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         public void KillHost() {
-            _process.Kill();
+            try {
+                _process?.Kill();
+            } catch (Win32Exception) {
+            } catch (InvalidOperationException) {
+            }
+
             _process = null;
         }
 
