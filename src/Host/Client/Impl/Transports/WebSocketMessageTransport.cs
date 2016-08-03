@@ -35,6 +35,8 @@ namespace Microsoft.R.Host.Client {
                 WebSocketReceiveResult wsrr;
                 try {
                     wsrr = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer.GetBuffer(), index, blockSize), ct);
+                } catch (SocketException ex) {
+                    throw new MessageTransportException(ex);
                 } catch (WebSocketException ex) {
                     throw new MessageTransportException(ex);
                 }

@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,6 +17,8 @@ using Microsoft.R.Host.Broker.Pipes;
 namespace Microsoft.R.Host.Broker.Sessions {
     public class Session {
         private const string RHostExe = "Microsoft.R.Host.exe";
+
+        private static readonly byte[] _endMessage;
 
         private Process _process;
         private MessagePipe _pipe;
@@ -35,6 +38,20 @@ namespace Microsoft.R.Host.Broker.Sessions {
             Id = Id,
             InterpreterId = Interpreter.Info.Id
         };
+
+        static Session() {
+            using (var stream = new MemoryStream()) {
+                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true)) {
+                    writer.Write(ulong.MaxValue - 1);
+                    writer.Write(0UL);
+                    writer.Write("!End".ToCharArray());
+                    writer.Write((byte)0);
+                    writer.Write("[]".ToCharArray());
+                    writer.Write((byte)0);
+                }
+                _endMessage = stream.ToArray();
+            }
+        }
 
         internal Session(SessionManager manager, string id, Interpreter interpreter, IIdentity user) {
             Manager = manager;
@@ -112,6 +129,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
                 pipe.Write(message);
             }
+
+            pipe.Write(_endMessage);
         }
     }
 }
