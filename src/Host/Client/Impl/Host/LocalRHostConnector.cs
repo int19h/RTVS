@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -55,6 +56,14 @@ namespace Microsoft.R.Host.Client.Host {
             };
             _broker.DefaultRequestHeaders.Accept.Clear();
             _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        }
+
+        public void Dispose() {
+            try {
+                _brokerProcess?.Kill();
+            } catch (Win32Exception) {
+            } catch (InvalidOperationException) {
+            }
         }
 
         private void ReserveBrokerUri() {

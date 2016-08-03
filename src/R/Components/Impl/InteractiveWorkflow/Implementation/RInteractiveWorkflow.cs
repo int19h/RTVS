@@ -151,6 +151,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             RSession.Disconnected -= RSessionDisconnected;
             Operations.Dispose();
             Connections.Dispose();
+            BrokerConnector?.Dispose();
             _onDispose();
         }
     }

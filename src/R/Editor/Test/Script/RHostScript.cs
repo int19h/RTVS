@@ -13,6 +13,7 @@ namespace Microsoft.R.Host.Client.Test.Script {
     [ExcludeFromCodeCoverage]
     public class RHostScript : IDisposable {
         private bool _disposed = false;
+        private IRHostBrokerConnector _connector = new RHostBrokerConnector();
 
         public IRSessionProvider SessionProvider { get; private set; }
         public IRSession Session { get; private set; }
@@ -22,7 +23,7 @@ namespace Microsoft.R.Host.Client.Test.Script {
         public RHostScript(IRSessionProvider sessionProvider, IRSessionCallback clientApp = null) {
             SessionProvider = sessionProvider;
 
-            Session = SessionProvider.GetOrCreate(GuidList.InteractiveWindowRSessionGuid, new RHostBrokerConnector());
+            Session = SessionProvider.GetOrCreate(GuidList.InteractiveWindowRSessionGuid, _connector);
             Session.IsHostRunning.Should().BeFalse();
             
             Session.StartHostAsync(new RHostStartupInfo {
@@ -52,6 +53,9 @@ namespace Microsoft.R.Host.Client.Test.Script {
                 if (SessionProvider != null) {
                     SessionProvider = null;
                 }
+
+                _connector?.Dispose();
+                _connector = null;
             }
 
             _disposed = true;

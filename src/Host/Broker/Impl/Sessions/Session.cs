@@ -50,6 +50,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                     writer.Write("[]".ToCharArray());
                     writer.Write((byte)0);
                 }
+
                 _endMessage = stream.ToArray();
             }
         }
@@ -123,13 +124,13 @@ namespace Microsoft.R.Host.Broker.Sessions {
         private async Task HostToClientWorker(Stream stream, IMessagePipeEnd pipe) {
             var sizeBuf = new byte[sizeof(int)];
             while (true) {
-                if (await stream.ReadAsync(sizeBuf, 0, sizeBuf.Length) != sizeBuf.Length) {
+                if (!await FillFromStreamAsync(stream, sizeBuf)) {
                     break;
                 }
                 int size = BitConverter.ToInt32(sizeBuf, 0);
 
                 var message = new byte[size];
-                if (await stream.ReadAsync(message, 0, message.Length) != message.Length) {
+                if (!await FillFromStreamAsync(stream, message)) {
                     break;
                 }
 
@@ -137,6 +138,20 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
 
             pipe.Write(_endMessage);
+        }
+
+        private static async Task<bool> FillFromStreamAsync(Stream stream, byte[] buffer) {
+            for (int index = 0, count = buffer.Length; count != 0;) {
+                int read = await stream.ReadAsync(buffer, index, count);
+                if (read == 0) {
+                    return false;
+                }
+
+                index += read;
+                count -= read;
+            }
+
+            return true;
         }
     }
 }

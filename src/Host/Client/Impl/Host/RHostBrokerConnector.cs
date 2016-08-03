@@ -18,6 +18,10 @@ namespace Microsoft.R.Host.Client.Host {
             SwitchToLocalBroker(null);
         }
 
+        public void Dispose() {
+            _hostConnector?.Dispose();
+        }
+
         public void SwitchToLocalBroker(string rBasePath, string rHostDirectory = null) {
             var installPath = new RInstallation().GetRInstallPath(rBasePath, new SupportedRVersionRange());
 

@@ -33,7 +33,7 @@ namespace Microsoft.R.Editor.Application.Test.Completion {
         private readonly EditorHostMethodFixture _editorHost;
         private readonly IRSessionProvider _sessionProvider;
 
-        public IntellisenseTest(REditorApplicationMefCatalogFixture catalog, EditorHostMethodFixture editorHost): base(catalog) {
+        public IntellisenseTest(REditorApplicationMefCatalogFixture catalog, EditorHostMethodFixture editorHost) : base(catalog) {
             _editorHost = editorHost;
             _sessionProvider = _exportProvider.GetExportedValue<IRSessionProvider>();
         }
@@ -117,41 +117,41 @@ namespace Microsoft.R.Editor.Application.Test.Completion {
 
         [Test]
         public async Task R_LoadedPackageFunctionCompletion() {
-            using (var script = await _editorHost.StartScript(_exportProvider, RContentTypeDefinition.ContentType)) {
-                using (new RHostScript(_sessionProvider)) {
-                    script.Type("c");
-                    script.DoIdle(200);
-                    var session = script.GetCompletionSession();
-                    session.Should().NotBeNull();
-                    script.DoIdle(500);
+            using (var script = await _editorHost.StartScript(_exportProvider, RContentTypeDefinition.ContentType))
+            using (var connector = new RHostBrokerConnector())
+            using (new RHostScript(_sessionProvider)) {
+                script.Type("c");
+                script.DoIdle(200);
+                var session = script.GetCompletionSession();
+                session.Should().NotBeNull();
+                script.DoIdle(500);
 
-                    var list = session.SelectedCompletionSet.Completions.ToList();
-                    var item = list.FirstOrDefault(x => x.DisplayText == "codoc");
-                    item.Should().BeNull();
+                var list = session.SelectedCompletionSet.Completions.ToList();
+                var item = list.FirstOrDefault(x => x.DisplayText == "codoc");
+                item.Should().BeNull();
 
-                    var rSession = _sessionProvider.GetOrCreate(GuidList.InteractiveWindowRSessionGuid, new RHostBrokerConnector());
-                    rSession.Should().NotBeNull();
+                var rSession = _sessionProvider.GetOrCreate(GuidList.InteractiveWindowRSessionGuid, connector);
+                rSession.Should().NotBeNull();
 
-                    await rSession.ExecuteAsync("library('tools')");
+                await rSession.ExecuteAsync("library('tools')");
 
-                    script.DoIdle(1000);
+                script.DoIdle(1000);
 
-                    script.Type("{ESC}");
-                    script.DoIdle(200);
-                    script.Backspace();
-                    script.Type("{ENTER}");
-                    script.DoIdle(100);
+                script.Type("{ESC}");
+                script.DoIdle(200);
+                script.Backspace();
+                script.Type("{ENTER}");
+                script.DoIdle(100);
 
-                    script.Type("c");
-                    script.DoIdle(500);
-                    script.Backspace();
+                script.Type("c");
+                script.DoIdle(500);
+                script.Backspace();
 
-                    session = script.GetCompletionSession();
-                    session.Should().NotBeNull();
-                    list = session.SelectedCompletionSet.Completions.ToList();
-                    item = list.FirstOrDefault(x => x.DisplayText == "codoc");
-                    item.Should().NotBeNull();
-                }
+                session = script.GetCompletionSession();
+                session.Should().NotBeNull();
+                list = session.SelectedCompletionSet.Completions.ToList();
+                item = list.FirstOrDefault(x => x.DisplayText == "codoc");
+                item.Should().NotBeNull();
             }
         }
 
