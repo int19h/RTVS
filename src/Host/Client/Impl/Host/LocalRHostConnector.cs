@@ -131,6 +131,10 @@ namespace Microsoft.R.Host.Client.Host {
         public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
             await TaskUtilities.SwitchToBackgroundThread();
 
+            if (_brokerProcess == null) {
+                await StartBrokerAsync();
+            }
+
             if (_brokerProcess?.HasExited != false) {
                 throw new InvalidOperationException("Broker process is not running - call StartBrokerAsync first");
             }

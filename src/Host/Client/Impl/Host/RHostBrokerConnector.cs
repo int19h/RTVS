@@ -22,7 +22,6 @@ namespace Microsoft.R.Host.Client.Host {
             var installPath = new RInstallation().GetRInstallPath(rBasePath, new SupportedRVersionRange());
 
             var connector = new LocalRHostConnector(installPath, rHostDirectory);
-            connector.StartBrokerAsync().GetAwaiter().GetResult();
 
             _hostConnector = connector;
             BrokerUri = new Uri(installPath);
