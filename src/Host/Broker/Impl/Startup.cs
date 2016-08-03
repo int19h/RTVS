@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.WebSockets.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
+using Microsoft.R.Host.Broker.Lifetime;
 using Microsoft.R.Host.Broker.Pipes;
 using Microsoft.R.Host.Broker.Security;
 using Microsoft.R.Host.Broker.Sessions;
@@ -28,8 +29,11 @@ namespace Microsoft.R.Host.Broker {
 
         public void ConfigureServices(IServiceCollection services) {
             services.AddOptions()
-                .Configure<InterpretersOptions>(Program.Configuration.GetSection("Interpreters"))
-                .Configure<SecurityOptions>(Program.Configuration.GetSection("Security"));
+                .Configure<LifetimeOptions>(Program.Configuration.GetSection("Lifetime"))
+                .Configure<SecurityOptions>(Program.Configuration.GetSection("Security"))
+                .Configure<InterpretersOptions>(Program.Configuration.GetSection("Interpreters"));
+
+            services.AddSingleton<LifetimeManager>();
 
             services.AddSingleton<InterpreterManager>();
 
@@ -47,7 +51,7 @@ namespace Microsoft.R.Host.Broker {
             services.AddMvc();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, PipeRequestHandler pipeRequestHandler) {
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, LifetimeManager lifetimeManager) {
             loggerFactory.AddConsole(LogLevel.Trace);
             loggerFactory.AddDebug();
 
@@ -59,9 +63,9 @@ namespace Microsoft.R.Host.Broker {
 
             app.UseMvc();
 
-            var routeBuilder = new RouteBuilder(app)
-                .MapGet("pipes/{id:guid}", context => pipeRequestHandler.HandleRequest(context, true));
-            app.UseRouter(routeBuilder.Build());
+            //var routeBuilder = new RouteBuilder(app)
+            //    .MapGet("pipes/{id}", context => pipeRequestHandler.HandleRequest(context, true));
+            //app.UseRouter(routeBuilder.Build());
         }
     }
 }

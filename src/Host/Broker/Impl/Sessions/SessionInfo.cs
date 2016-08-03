@@ -5,7 +5,7 @@ using System;
 
 namespace Microsoft.R.Host.Broker.Sessions {
     public class SessionInfo {
-        public Guid Id { get; set; }
+        public string Id { get; set; }
 
         public string InterpreterId { get; set; }
     }

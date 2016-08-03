@@ -31,7 +31,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
 
             public abstract void Dispose();
 
-            public abstract Task<byte[]> ReadAsync();
+            public abstract Task<byte[]> ReadAsync(CancellationToken cancellationToken);
 
             public abstract void Write(byte[] message);
         }
@@ -49,10 +49,10 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 Pipe._hostMessages.Enqueue(message);
             }
 
-            public override async Task<byte[]> ReadAsync() {
+            public override async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
                 byte[] message;
                 while (!Pipe._clientMessages.TryDequeue(out message)) {
-                    await Task.Delay(100);
+                    await Task.Delay(100, cancellationToken);
                 }
 
                 return message;
@@ -83,7 +83,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 Pipe._clientMessages.Enqueue(message);
             }
 
-            public override async Task<byte[]> ReadAsync() {
+            public override async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
                 var handshake = Pipe._handshake;
                 if (_isFirstRead) {
                     _isFirstRead = false;
@@ -97,7 +97,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                     message = Pipe._unsentPendingRequests.Dequeue();
                 } else {
                     while (!Pipe._hostMessages.TryDequeue(out message)) {
-                        await Task.Delay(100);
+                        await Task.Delay(100, cancellationToken);
                     }
                 }
 

@@ -23,7 +23,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public SessionManager Manager { get; }
 
-        public Guid Id { get; }
+        public string Id { get; }
 
         public Interpreter Interpreter { get; }
 
@@ -36,26 +36,21 @@ namespace Microsoft.R.Host.Broker.Sessions {
             InterpreterId = Interpreter.Info.Id
         };
 
-        internal Session(SessionManager manager, Guid id, Interpreter interpreter, IIdentity user) {
+        internal Session(SessionManager manager, string id, Interpreter interpreter, IIdentity user) {
             Manager = manager;
             Id = id;
             Interpreter = interpreter;
             User = user;
         }
 
-        public void Start(IUrlHelper urlHelper) {
+        public void StartHost() {
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
-
-            //var pipeWsUri = new Uri(new Uri("ws://localhost:5000"), urlHelper.Action("Get", "Pipes", new { id = Id }));
-
-            string serverUrl = Program.Configuration["server.urls"];
-            var pipeWsUri = new UriBuilder(serverUrl) { Scheme = "ws", Path = $"pipes/{Id}" }.Uri;
 
             var psi = new ProcessStartInfo(rhostExePath) {
                 UseShellExecute = false,
                 CreateNoWindow = false,
-                Arguments = $"--rhost-name BrokerSession{Id} --rhost-connect {pipeWsUri}",
+                Arguments = $"--rhost-name {Id}",
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
             };
@@ -75,12 +70,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
             var hostToClient = HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd);
         }
 
-        public IMessagePipeEnd ConnectHost() {
-            if (_pipe == null) {
-                throw new InvalidOperationException("Host process not started");
-            }
-
-            return _pipe.ConnectHost();
+        public void KillHost() {
+            _process.Kill();
+            _process = null;
         }
 
         public IMessagePipeEnd ConnectClient() {
@@ -93,7 +85,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         private async Task ClientToHostWorker(Stream stream, IMessagePipeEnd pipe) {
             while (true) {
-                var message = await pipe.ReadAsync();
+                var message = await pipe.ReadAsync(Program.CancellationToken);
                 var sizeBuf = BitConverter.GetBytes(message.Length);
                 try {
                     await stream.WriteAsync(sizeBuf, 0, sizeBuf.Length);

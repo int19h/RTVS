@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,17 +30,17 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         [HttpPut("{id}")]
-        public SessionInfo Put(Guid id, [FromBody] SessionCreateRequest request) {
+        public SessionInfo Put(string id, [FromBody] SessionCreateRequest request) {
             var interp = _interpManager.Interpreters.First(ip => ip.Info.Id ==  request.InterpreterId);
             var session = _sessionManager.CreateSession(id, interp, User.Identity, Url);
             return session.Info;
         }
 
         [HttpGet("{id}/pipe")]
-        public Task GetPipe(Guid id, [FromServices] PipeRequestHandler pipes) {
+        public Task GetPipe(string id, [FromServices] PipeRequestHandler pipes, CancellationToken ct) {
             //var interp = _interpManager.Interpreters.First(ip => ip.Info.Id == request.InterpreterId);
             //var session = _sessionManager.GetSession(id);
-            return pipes.HandleRequest(HttpContext, false);
+            return pipes.HandleRequest(HttpContext, ct);
         }
     }
 }

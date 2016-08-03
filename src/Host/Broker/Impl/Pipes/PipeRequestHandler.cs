@@ -24,7 +24,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             _sessionManager = sessionManager;
         }
 
-        public async Task HandleRequest(HttpContext context, bool isHost) {
+        public async Task HandleRequest(HttpContext context, CancellationToken ct) {
             var httpResponse = context.Features.Get<IHttpResponseFeature>();
 
             if (!context.WebSockets.IsWebSocketRequest) {
@@ -33,10 +33,9 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 return;
             }
 
-            var id = Guid.Parse((string)context.GetRouteValue("id"));
-
-            var session = _sessionManager.GetSession(id);
-            var pipe = isHost ? session.ConnectHost() : session.ConnectClient();
+            var id = (string)context.GetRouteValue("id");
+            var session = _sessionManager.GetSession(context.User.Identity, id);
+            var pipe = session.ConnectClient();
 
             //string key = string.Join(", ", context.Request.Headers[Constants.Headers.SecWebSocketKey]);
             //var responseHeaders = HandshakeHelpers.GenerateResponseHeaders(key, "Microsoft.R.Host");
@@ -50,13 +49,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
 
             var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
 
-            Task wsToPipe = WebSocketToPipeWorker(socket, pipe);
-            Task pipeToWs = PipeToWebSocketWorker(socket, pipe);
+            Task wsToPipe = WebSocketToPipeWorker(socket, pipe, ct);
+            Task pipeToWs = PipeToWebSocketWorker(socket, pipe, ct);
 
             await Task.WhenAll(wsToPipe, pipeToWs);
         }
 
-        private static async Task WebSocketToPipeWorker(WebSocket socket, IMessagePipeEnd pipe) {
+        private static async Task WebSocketToPipeWorker(WebSocket socket, IMessagePipeEnd pipe, CancellationToken ct) {
             var cancellationToken = new CancellationToken();
 
             const int blockSize = 0x10000;
@@ -78,11 +77,11 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
         }
 
-        private static async Task PipeToWebSocketWorker(WebSocket socket, IMessagePipeEnd pipe) {
+        private static async Task PipeToWebSocketWorker(WebSocket socket, IMessagePipeEnd pipe, CancellationToken ct) {
             var cancellationToken = new CancellationToken();
 
             while (true) {
-                var message = await pipe.ReadAsync();
+                var message = await pipe.ReadAsync(ct);
                 await socket.SendAsync(new ArraySegment<byte>(message, 0, message.Length), WebSocketMessageType.Binary, true, cancellationToken);
             }
         }

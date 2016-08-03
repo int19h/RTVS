@@ -98,7 +98,8 @@ namespace Microsoft.R.Host.Client.Host {
             for (int i = 0; i < 100; ++i) {
                 await Task.Delay(1000);
                 try {
-                    await _broker.GetAsync("/interpreters");
+                    await PingAsync();
+                    Task.Run(PingWorker).DoNotWait();
                     return;
                 } catch (OperationCanceledException) {
                 }
@@ -112,6 +113,21 @@ namespace Microsoft.R.Host.Client.Host {
             throw new RHostTimeoutException("Couldn't start broker process");
         }
 
+        private async Task PingAsync() {
+            (await _broker.PostAsync("/ping", new StringContent(""))).EnsureSuccessStatusCode();
+        }
+
+        private async Task PingWorker() {
+            try {
+                while (true) {
+                    await PingAsync();
+                    await Task.Delay(1000);
+                }
+            } catch (OperationCanceledException) {
+            } catch (HttpRequestException) {
+            }
+        }
+
         public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
             await TaskUtilities.SwitchToBackgroundThread();
 
@@ -121,11 +137,10 @@ namespace Microsoft.R.Host.Client.Host {
 
             rCommandLineArguments = rCommandLineArguments ?? string.Empty;
 
-            var sessionId = Guid.NewGuid();
             var request = new { InterpreterId = "" };
             var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
 
-            (await _broker.PutAsync($"/sessions/{sessionId}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
+            (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
 
             var wsClient = new WebSocketClient {
                 KeepAliveInterval = HeartbeatTimeout,
@@ -138,7 +153,7 @@ namespace Microsoft.R.Host.Client.Host {
 
             var pipeUri = new UriBuilder(_broker.BaseAddress) {
                 Scheme = "ws",
-                Path = $"sessions/{sessionId}/pipe"
+                Path = $"sessions/{name}/pipe"
             }.Uri;
             var socket = await wsClient.ConnectAsync(pipeUri, cancellationToken);
 
