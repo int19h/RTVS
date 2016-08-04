@@ -7,14 +7,14 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.R.Host.Broker.Security {
     public class RUserAuthorizationHandler : AuthorizationHandler<RUserAuthorizationRequirement> {
-        private readonly IOptions<SecurityOptions> _securityOptions;
+        private readonly SecurityOptions _securityOptions;
 
         public RUserAuthorizationHandler(IOptions<SecurityOptions> securityOptions) {
-            _securityOptions = securityOptions;
+            _securityOptions = securityOptions.Value;
         }
 
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, RUserAuthorizationRequirement requirement) {
-            if (!context.User.IsInRole(_securityOptions.Value.AllowedGroup)) {
+            if (!context.User.IsInRole(_securityOptions.AllowedGroup)) {
                 return Task.CompletedTask;
             }
 

@@ -5,53 +5,57 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
+using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.R.Interpreters;
 
 namespace Microsoft.R.Host.Broker.Interpreters {
     public class InterpreterManager {
-        private readonly IOptions<InterpretersOptions> _interpOptions;
+        private readonly ROptions _options;
+        private readonly ILogger _logger;
         private readonly RInstallation _rInstallation = new RInstallation();
 
-        public IReadOnlyCollection<Interpreter> Interpreters { get; }
+        public IReadOnlyCollection<Interpreter> Interpreters { get; private set; }
 
         [ImportingConstructor]
-        public InterpreterManager(IOptions<InterpretersOptions> interpOptions) {
-            _interpOptions = interpOptions;
+        public InterpreterManager(IOptions<ROptions> options, ILogger<InterpreterManager> logger) {
+            _options = options.Value;
+            _logger = logger;
+        }
+
+        public void Initialize() {
             Interpreters = GetInterpreters().ToArray();
+            var sb = new StringBuilder($"{Interpreters.Count} interpreters configured:");
+            foreach (var interp in Interpreters) {
+                sb.Append(Environment.NewLine + $"'{interp.Id}': {interp.Version} at \"{interp.Path}\"");
+            }
+            _logger.LogInformation(sb.ToString());
         }
 
         private IEnumerable<Interpreter> GetInterpreters() {
-            if (_interpOptions.Value.AutoDetect) {
-                var detectedInfo = CreateInterpreter("", null, throwOnError: false);
-                if (detectedInfo != null) {
-                    yield return detectedInfo;
-                }
-            }
+            if (_options.AutoDetect) {
+                _logger.LogTrace("Auto-detecting R ...");
 
-            foreach (var kv in _interpOptions.Value.Interpreters) {
-                yield return CreateInterpreter(kv.Key, kv.Value.BasePath, throwOnError: true);
-            }
-        }
-
-        private Interpreter CreateInterpreter(string name, string basePath, bool throwOnError) {
-            var rid = _rInstallation.GetInstallationData(basePath, new SupportedRVersionRange());
-            if (rid.Status != RInstallStatus.OK) {
-                if (throwOnError) {
-                    throw rid.Exception ?? new InvalidOperationException("Failed to retrieve R installation data");
+                var rid = _rInstallation.GetInstallationData(null, new SupportedRVersionRange());
+                if (rid.Status == RInstallStatus.OK) {
+                    var detected = new Interpreter(this, "", rid.Path, rid.BinPath, rid.Version);
+                    _logger.LogTrace($"R {detected.Version} detected at \"{detected.Path}\".");
+                    yield return detected;
                 } else {
-                    return null;
+                    _logger.LogWarning("No R interpreters found.");
                 }
             }
 
-            var info = new InterpreterInfo {
-                Id = name,
-                Path = rid.Path,
-                BinPath = rid.BinPath,
-                Version = rid.Version,
-            };
+            foreach (var kv in _options.Interpreters) {
+                var rid = _rInstallation.GetInstallationData(kv.Value.BasePath, new SupportedRVersionRange());
+                if (rid.Status != RInstallStatus.OK) {
+                    _logger.LogError($"Failed to retrieve R installation data for \"{kv.Value.BasePath}\" ({rid.Status})");
+                    continue;
+                }
 
-            return new Interpreter(this, info);
+                yield return new Interpreter(this, kv.Key, rid.Path, rid.BinPath, rid.Version);
+            }
         }
     }
 }

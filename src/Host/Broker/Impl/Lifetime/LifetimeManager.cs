@@ -19,7 +19,7 @@ namespace Microsoft.R.Host.Broker.Lifetime {
             _logger = logger;
         }
 
-        public void Start() {
+        public void Initialize() {
             if (_options.ParentProcessID != null) {
                 int pid = _options.ParentProcessID.Value;
                 Process process;

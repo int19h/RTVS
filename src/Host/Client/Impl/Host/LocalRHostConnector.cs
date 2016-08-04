@@ -23,9 +23,10 @@ using static System.FormattableString;
 
 namespace Microsoft.R.Host.Client.Host {
     internal sealed class LocalRHostConnector : IRHostConnector {
-        public const int DefaultPort = 5118;
-        public const string RHostBrokerExe = "Microsoft.R.Host.Broker.exe";
-        public const string RBinPathX64 = @"bin\x64";
+        private const int DefaultPort = 5118;
+        private const string RHostBrokerExe = "Microsoft.R.Host.Broker.exe";
+        private const string RBinPathX64 = @"bin\x64";
+        private const string InterpreterId = "local";
 
         private static readonly bool ShowConsole = true; //!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RTVS_HOST_CONSOLE"));
         private static readonly TimeSpan HeartbeatTimeout =
@@ -114,7 +115,9 @@ namespace Microsoft.R.Host.Client.Host {
             var psi = new ProcessStartInfo {
                 FileName = rhostBrokerExe,
                 UseShellExecute = false,
-                Arguments = $" --server.urls {_broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}"
+                Arguments =
+                    $" --server.urls {_broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
+                    $" --R:autoDetect false --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
             };
 
             if (!ShowConsole) {
@@ -173,7 +176,7 @@ namespace Microsoft.R.Host.Client.Host {
 
             rCommandLineArguments = rCommandLineArguments ?? string.Empty;
 
-            var request = new { InterpreterId = "" };
+            var request = new { InterpreterId = InterpreterId };
             var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
 
             try {

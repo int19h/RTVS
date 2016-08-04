@@ -22,7 +22,7 @@ namespace Microsoft.R.Host.Broker {
             services.AddOptions()
                 .Configure<LifetimeOptions>(Program.Configuration.GetSection("lifetime"))
                 .Configure<SecurityOptions>(Program.Configuration.GetSection("security"))
-                .Configure<InterpretersOptions>(Program.Configuration.GetSection("interpreters"));
+                .Configure<ROptions>(Program.Configuration.GetSection("R"));
 
             services.AddSingleton<LifetimeManager>();
 
@@ -40,13 +40,14 @@ namespace Microsoft.R.Host.Broker {
             services.AddMvc();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, LifetimeManager lifetimeManager) {
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, LifetimeManager lifetimeManager, InterpreterManager interpreterManager) {
             loggerFactory
                 .AddDebug()
                 .AddConsole(LogLevel.Trace)
                 .AddProvider(new FileLoggerProvider());
 
-            lifetimeManager.Start();
+            lifetimeManager.Initialize();
+            interpreterManager.Initialize();
 
             app.UseWebSockets(new WebSocketOptions {
                 ReplaceFeature = true,

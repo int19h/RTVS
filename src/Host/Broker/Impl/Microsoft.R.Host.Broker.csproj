@@ -30,6 +30,7 @@
     <WarningLevel>4</WarningLevel>
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <CodeAnalysisRuleSet>$(SourceDirectory)DevDivRuleSet.ruleset</CodeAnalysisRuleSet>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -66,7 +67,7 @@
     <Compile Include="Security\RUserAuthorizationHandler.cs" />
     <Compile Include="Security\RUserAuthorizationRequirement.cs" />
     <Compile Include="Security\SecurityOptions.cs" />
-    <Compile Include="Interpreters\InterpretersOptions.cs" />
+    <Compile Include="Interpreters\ROptions.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="Interpreters\InterpretersController.cs" />
     <Compile Include="Resources.Designer.cs">
