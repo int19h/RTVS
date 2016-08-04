@@ -23,18 +23,15 @@ using Xunit;
 namespace Microsoft.VisualStudio.R.Package.Test.DataInspect {
     [ExcludeFromCodeCoverage]
     [Collection(CollectionNames.NonParallel)]   // required for tests using R Host 
-    public class ViewersTest : IDisposable {
+    public class ViewersTest {
         private readonly IRSessionProvider _sessionProvider;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector;
         private readonly IObjectDetailsViewerAggregator _aggregator;
 
         public ViewersTest() {
             _sessionProvider = VsAppShell.Current.ExportProvider.GetExportedValue<IRSessionProvider>();
             _aggregator = VsAppShell.Current.ExportProvider.GetExportedValue<IObjectDetailsViewerAggregator>();
-        }
-
-        public void Dispose() {
-            _brokerConnector.Dispose();
+            _brokerConnector = VsAppShell.Current.ExportProvider.GetExportedValue<IRInteractiveWorkflowProvider>().GetOrCreate().BrokerConnector;
         }
 
         [Test]
