@@ -17,9 +17,6 @@ namespace Microsoft.R.Host.Client {
 
         private WebSocket Socket => _socket;
 
-        public event EventHandler Open;
-        public event EventHandler Close;
-
         public WebSocketMessageTransport(WebSocket socket) {
             _socket = socket;
         }

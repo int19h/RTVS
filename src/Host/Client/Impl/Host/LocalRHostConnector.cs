@@ -59,10 +59,17 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         public void Dispose() {
-            try {
-                _brokerProcess?.Kill();
-            } catch (Win32Exception) {
-            } catch (InvalidOperationException) {
+            if (_brokerProcess != null) {
+                if (!_brokerProcess.HasExited) {
+                    try {
+                        _brokerProcess.Kill();
+                    } catch (Win32Exception) {
+                    } catch (InvalidOperationException) {
+                    }
+                }
+
+                LocalRHostConnector connector;
+                _connectors.TryRemove(_broker.BaseAddress.Port, out connector);
             }
         }
 
@@ -116,6 +123,7 @@ namespace Microsoft.R.Host.Client.Host {
 
             try {
                 _brokerProcess.Kill();
+                _brokerProcess = null;
             } catch (Exception) {
             }
 
@@ -142,10 +150,6 @@ namespace Microsoft.R.Host.Client.Host {
 
             if (_brokerProcess == null) {
                 await StartBrokerAsync();
-            }
-
-            if (_brokerProcess?.HasExited != false) {
-                throw new InvalidOperationException("Broker process is not running - call StartBrokerAsync first");
             }
 
             rCommandLineArguments = rCommandLineArguments ?? string.Empty;

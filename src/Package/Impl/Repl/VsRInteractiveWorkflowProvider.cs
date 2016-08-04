@@ -17,7 +17,7 @@ using Microsoft.R.Support.Settings;
 
 namespace Microsoft.VisualStudio.R.Package.Repl {
     [Export(typeof(IRInteractiveWorkflowProvider))]
-    internal class VsRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider {
+    internal class VsRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider, IDisposable {
         private readonly IRSessionProvider _sessionProvider;
         private readonly IConnectionManagerProvider _connectionsProvider;
         private readonly IRHistoryProvider _historyProvider;
@@ -47,6 +47,12 @@ namespace Microsoft.VisualStudio.R.Package.Repl {
             _activeTextViewTracker = activeTextViewTracker;
             _debuggerModeTracker = debuggerModeTracker;
             _shell = shell;
+        }
+
+        public void Dispose() {
+            if (_instanceLazy?.IsValueCreated == true) {
+                _instanceLazy?.Value?.Dispose();
+            }
         }
 
         public IRInteractiveWorkflow GetOrCreate() {

@@ -23,7 +23,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         private Process _process;
         private MessagePipe _pipe;
-        private IMessagePipeEnd _hostEnd;
 
         public SessionManager Manager { get; }
 

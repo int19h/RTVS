@@ -20,7 +20,7 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
     [Export(typeof(IRInteractiveWorkflowProvider))]
     [Export(typeof(TestRInteractiveWorkflowProvider))]
     [PartMetadata(PartMetadataAttributeNames.SkipInEditorTestCompositionCatalog, null)]
-    public class TestRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider {
+    public class TestRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider, IDisposable {
         private readonly IRSessionProvider _sessionProvider;
         private readonly IConnectionManagerProvider _connectionManagerProvider;
         private readonly IRHistoryProvider _historyProvider;
@@ -57,6 +57,12 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
             _brokerConnector = brokerConnector;
             _shell = shell;
             _settings = settings;
+        }
+
+        public void Dispose() {
+            if (_instanceLazy?.IsValueCreated == true) {
+                _instanceLazy?.Value?.Dispose();
+            }
         }
 
         public IRInteractiveWorkflow GetOrCreate() {
