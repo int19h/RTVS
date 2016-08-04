@@ -45,6 +45,7 @@ namespace Microsoft.R.Host.Client.Host {
 
         private Process _brokerProcess;
         private HttpClient _broker;
+        private bool _isDisposed;
 
         public LocalRHostConnector(string rHome, string rhostDirectory = null) {
             _rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
@@ -59,6 +60,11 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         public void Dispose() {
+            if (_isDisposed) {
+                return;
+            }
+            _isDisposed = true;
+
             if (_brokerProcess != null) {
                 if (!_brokerProcess.HasExited) {
                     try {
@@ -66,6 +72,8 @@ namespace Microsoft.R.Host.Client.Host {
                     } catch (Win32Exception) {
                     } catch (InvalidOperationException) {
                     }
+
+                    _brokerProcess = null;
                 }
 
                 LocalRHostConnector connector;
@@ -90,6 +98,10 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         public async Task StartBrokerAsync() {
+            if (_isDisposed) {
+                throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
+            }
+
             string rhostBrokerExe = Path.Combine(_rhostDirectory, RHostBrokerExe);
             if (!File.Exists(rhostBrokerExe)) {
                 throw new RHostBinaryMissingException();
@@ -146,6 +158,10 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
+            if (_isDisposed) {
+                throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
+            }
+
             await TaskUtilities.SwitchToBackgroundThread();
 
             if (_brokerProcess == null) {
