@@ -234,7 +234,9 @@ namespace Microsoft.R.Host.Client {
         }
 
         public Task<REvaluationResult> EvaluateAsync(string expression, REvaluationKind kind, CancellationToken ct) {
-            if (_cancelEvaluationAfterRunTask == null || _cancelEvaluationAfterRunTask.IsCompleted) { 
+            if (_cancelEvaluationAfterRunTask == null) {
+                throw new InvalidOperationException("Host was not started");
+            } else if (_cancelEvaluationAfterRunTask.IsCompleted) { 
                 return RhostDisconnectedEvaluationResult;
             }
 
@@ -447,6 +449,15 @@ namespace Microsoft.R.Host.Client {
         private async Task RunWorker(CancellationToken ct) {
             TaskUtilities.AssertIsOnBackgroundThread();
 
+            // Spin until the worker task is registered.
+            while (_runTask == null) {
+                await Task.Yield();
+            }
+
+            // Create cancellation tasks before proceeding with anything else, to avoid race conditions in usage of those tasks.
+            _cancelEvaluationAfterRunTask = _runTask.ContinueWith(t => RhostDisconnectedEvaluationResult).Unwrap();
+            _cancelSendBlobAfterRunTask = _runTask.ContinueWith(t => RhostDisconnectedSendBlobResult).Unwrap();
+
             try {
                 var message = await ReceiveMessageAsync(ct);
                 if (!message.IsNotification || message.Name != "!Microsoft.R.Host") {
@@ -481,8 +492,6 @@ namespace Microsoft.R.Host.Client {
 
             try {
                 _runTask = RunWorker(ct);
-                _cancelEvaluationAfterRunTask = _runTask.ContinueWith(t => RhostDisconnectedEvaluationResult).Unwrap();
-                _cancelSendBlobAfterRunTask = _runTask.ContinueWith(t => RhostDisconnectedSendBlobResult).Unwrap();
                 await _runTask;
             } catch (OperationCanceledException) when (ct.IsCancellationRequested) {
                 // Expected cancellation, do not propagate, just exit process

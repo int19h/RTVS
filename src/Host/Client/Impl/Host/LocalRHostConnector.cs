@@ -122,6 +122,9 @@ namespace Microsoft.R.Host.Client.Host {
             }
 
             _brokerProcess = Process.Start(psi);
+            _brokerProcess.EnableRaisingEvents = true;
+            _brokerProcess.Exited += delegate {
+            };
 
             for (int i = 0; i < 100; ++i) {
                 await Task.Delay(1000);
@@ -164,7 +167,7 @@ namespace Microsoft.R.Host.Client.Host {
 
             await TaskUtilities.SwitchToBackgroundThread();
 
-            if (_brokerProcess == null) {
+            if (_brokerProcess?.HasExited != false) {
                 await StartBrokerAsync();
             }
 

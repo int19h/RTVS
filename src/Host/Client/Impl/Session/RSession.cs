@@ -111,6 +111,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public Task<IRSessionInteraction> BeginInteractionAsync(bool isVisible = true, CancellationToken cancellationToken = default(CancellationToken)) {
+            _disposeToken.ThrowIfDisposed();
+
             if (!_isHostRunning) {
                 return CanceledBeginInteractionTask;
             }
@@ -122,6 +124,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public Task<IRSessionEvaluation> BeginEvaluationAsync(CancellationToken cancellationToken = default(CancellationToken)) {
+            _disposeToken.ThrowIfDisposed();
+
             if (!_isHostRunning) {
                 return CanceledBeginEvaluationTask;
             }
@@ -150,8 +154,9 @@ namespace Microsoft.R.Host.Client.Session {
             }
         }
 
-
         public async Task<ulong> CreateBlobAsync(byte[] data, CancellationToken ct = default(CancellationToken)) {
+            _disposeToken.ThrowIfDisposed();
+
             if (!IsHostRunning) {
                 throw new RHostDisconnectedException();
             }
@@ -166,6 +171,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task<byte[]> GetBlobAsync(ulong blobId, CancellationToken ct = default(CancellationToken)) {
+            _disposeToken.ThrowIfDisposed();
+
             if (!IsHostRunning) {
                 throw new RHostDisconnectedException();
             }
@@ -180,6 +187,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task DestroyBlobsAsync(IEnumerable<ulong> blobIds, CancellationToken ct = default(CancellationToken)) {
+            _disposeToken.ThrowIfDisposed();
+
             if (!IsHostRunning) {
                 throw new RHostDisconnectedException();
             }
@@ -197,6 +206,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task CancelAllAsync() {
+            _disposeToken.ThrowIfDisposed();
+
             var cancelTask = _host.CancelAllAsync();
 
             var currentRequest = Interlocked.Exchange(ref _currentRequestSource, null);
@@ -208,6 +219,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task EnsureHostStartedAsync(RHostStartupInfo startupInfo, IRSessionCallback callback, int timeout = 3000) {
+            _disposeToken.ThrowIfDisposed();
+
             var existingInitializationTcs = Interlocked.CompareExchange(ref _initializationTcs, new TaskCompletionSourceEx<object>(), null);
             if (existingInitializationTcs == null) {
                 await StartHostAsyncBackground(startupInfo, callback, timeout);
@@ -217,6 +230,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task StartHostAsync(RHostStartupInfo startupInfo, IRSessionCallback callback, int timeout = 3000) {
+            _disposeToken.ThrowIfDisposed();
+
             if (Interlocked.CompareExchange(ref _initializationTcs, new TaskCompletionSourceEx<object>(), null) != null) {
                 throw new InvalidOperationException("Another instance of RHost is running for this RSession. Stop it before starting new one.");
             }
@@ -239,6 +254,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task RestartHostAsync() {
+            _disposeToken.ThrowIfDisposed();
+
             await StopHostAsync();
             if (_callback != null || _startupInfo != null) {
                 await StartHostAsync(_startupInfo, _callback);
@@ -246,6 +263,8 @@ namespace Microsoft.R.Host.Client.Session {
         }
 
         public async Task StopHostAsync() {
+            _disposeToken.ThrowIfDisposed();
+
             if (_initializationTcs == null) {
                 return;
             }
