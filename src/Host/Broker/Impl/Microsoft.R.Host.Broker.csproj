@@ -51,7 +51,7 @@
     <Compile Include="Logging\FileLogger.cs" />
     <Compile Include="Logging\FileLoggerProvider.cs" />
     <Compile Include="NativeMethods.cs" />
-    <Compile Include="Pipes\PipeRequestHandler.cs" />
+    <Compile Include="Pipes\WebSocketPipeAction.cs" />
     <Compile Include="Security\Policies.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Sessions\Session.cs" />

@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Lifetime;
 using Microsoft.R.Host.Broker.Logging;
-using Microsoft.R.Host.Broker.Pipes;
 using Microsoft.R.Host.Broker.Security;
 using Microsoft.R.Host.Broker.Sessions;
 
@@ -38,8 +37,6 @@ namespace Microsoft.R.Host.Broker {
 
             services.AddRouting();
 
-            services.AddSingleton<PipeRequestHandler>();
-
             services.AddMvc();
         }
 
@@ -58,10 +55,6 @@ namespace Microsoft.R.Host.Broker {
             });
 
             app.UseMvc();
-
-            //var routeBuilder = new RouteBuilder(app)
-            //    .MapGet("pipes/{id}", context => pipeRequestHandler.HandleRequest(context, true));
-            //app.UseRouter(routeBuilder.Build());
         }
     }
 }

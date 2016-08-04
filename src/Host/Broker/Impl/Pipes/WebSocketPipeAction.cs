@@ -7,24 +7,20 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.WebSockets.Protocol;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.R.Host.Broker.Sessions;
 
 namespace Microsoft.R.Host.Broker.Pipes {
-    public class PipeRequestHandler {
-        private readonly SessionManager _sessionManager;
+    public class WebSocketPipeAction : IActionResult {
+        private readonly Session _session;
 
-        [ImportingConstructor]
-        public PipeRequestHandler(SessionManager sessionManager) {
-            _sessionManager = sessionManager;
+        public WebSocketPipeAction(Session session) {
+            _session = session;
         }
 
-        public async Task HandleRequest(HttpContext context, CancellationToken ct) {
+        public async Task ExecuteResultAsync(ActionContext actionContext) {
+            var context = actionContext.HttpContext;
             var httpResponse = context.Features.Get<IHttpResponseFeature>();
 
             if (!context.WebSockets.IsWebSocketRequest) {
@@ -33,26 +29,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 return;
             }
 
-            var id = (string)context.GetRouteValue("id");
-            var session = _sessionManager.GetSession(context.User.Identity, id);
-            var pipe = session.ConnectClient();
-
-            //string key = string.Join(", ", context.Request.Headers[Constants.Headers.SecWebSocketKey]);
-            //var responseHeaders = HandshakeHelpers.GenerateResponseHeaders(key, "Microsoft.R.Host");
-            //foreach (var header in responseHeaders) {
-            //    context.Response.Headers[header.Key] = header.Value;
-            //}
-            //var upgrade = context.Features.Get<IHttpUpgradeFeature>();
-            //var stream = await upgrade.UpgradeAsync();
-            //await Task.Delay(1000);
-            //await stream.FlushAsync();
-
             var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
 
-            Task wsToPipe = WebSocketToPipeWorker(socket, pipe, ct);
-            Task pipeToWs = PipeToWebSocketWorker(socket, pipe, ct);
-
-            await Task.WhenAll(wsToPipe, pipeToWs);
+            using (var pipe = _session.ConnectClient()) {
+                Task wsToPipe = WebSocketToPipeWorker(socket, pipe, context.RequestAborted);
+                Task pipeToWs = PipeToWebSocketWorker(socket, pipe, context.RequestAborted);
+                await Task.WhenAll(wsToPipe, pipeToWs);
+            }
         }
 
         private static async Task WebSocketToPipeWorker(WebSocket socket, IMessagePipeEnd pipe, CancellationToken ct) {
@@ -85,6 +68,5 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 await socket.SendAsync(new ArraySegment<byte>(message, 0, message.Length), WebSocketMessageType.Binary, true, cancellationToken);
             }
         }
-
     }
 }

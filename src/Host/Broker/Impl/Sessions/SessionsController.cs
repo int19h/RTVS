@@ -1,11 +1,8 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.R.Host.Broker.Interpreters;
@@ -37,10 +34,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         [HttpGet("{id}/pipe")]
-        public Task GetPipe(string id, [FromServices] PipeRequestHandler pipes, CancellationToken ct) {
-            //var interp = _interpManager.Interpreters.First(ip => ip.Info.Id == request.InterpreterId);
-            //var session = _sessionManager.GetSession(id);
-            return pipes.HandleRequest(HttpContext, ct);
+        public IActionResult GetPipe(string id) {
+            var session = _sessionManager.GetSession(User.Identity, id);
+            return new WebSocketPipeAction(session);
         }
     }
 }
