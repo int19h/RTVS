@@ -14,6 +14,9 @@
     <TargetFrameworkProfile />
     <StartArguments>--server.urls http://localhost:5000</StartArguments>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
   <Import Project="..\..\..\R.Settings.targets" />
   <PropertyGroup>
     <BaseIntermediateOutputPath>$(ObjDirectory)</BaseIntermediateOutputPath>
@@ -31,6 +34,7 @@
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <CodeAnalysisRuleSet>$(SourceDirectory)DevDivRuleSet.ruleset</CodeAnalysisRuleSet>
     <UseVSHostingProcess>true</UseVSHostingProcess>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -52,6 +56,7 @@
     <Compile Include="Logging\FileLogger.cs" />
     <Compile Include="Logging\FileLoggerProvider.cs" />
     <Compile Include="NativeMethods.cs" />
+    <Compile Include="Pipes\ProcessHelpers.cs" />
     <Compile Include="Pipes\WebSocketPipeAction.cs" />
     <Compile Include="Security\Policies.cs" />
     <Compile Include="Program.cs" />

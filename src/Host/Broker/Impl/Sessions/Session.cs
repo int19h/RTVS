@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
 using Microsoft.R.Host.Broker.Interpreters;
@@ -19,7 +20,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
         private static readonly byte[] _endMessage;
 
         private Process _process;
-        private MessagePipe _pipe;
+        private volatile MessagePipe _pipe;
 
         public SessionManager Manager { get; }
 
@@ -76,14 +77,36 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
             _pipe = new MessagePipe();
-            var hostEnd = _pipe.ConnectHost();
 
             _process = Process.Start(psi);
+            _process.EnableRaisingEvents = true;
             _process.Exited += delegate { _pipe = null; };
 
-            var clientToHost = ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd);
-            var hostToClient = HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd);
+            var hostEnd = _pipe.ConnectHost();
+
+            ClientToHostWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
+            HostToClientWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
         }
+
+        //public void StartHost() {
+        //    string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
+        //    string rhostExePath = Path.Combine(brokerPath, RHostExe);
+
+        //    Stream stdin, stdout;
+        //    int pid = ProcessHelpers.StartProcessAsUser(User, rhostExePath, $"--rhost-name {Id}", Interpreter.BinPath, out stdin, out stdout);
+        //    Thread.Sleep(10000);
+
+        //    _pipe = new MessagePipe();
+
+        //    _process = Process.GetProcessById(pid);
+        //    _process.EnableRaisingEvents = true;
+        //    _process.Exited += delegate { _pipe = null; };
+
+        //    var hostEnd = _pipe.ConnectHost();
+
+        //    ClientToHostWorker(stdin, hostEnd).DoNotWait();
+        //    HostToClientWorker(stdout, hostEnd).DoNotWait();
+        //}
 
         public void KillHost() {
             try {
