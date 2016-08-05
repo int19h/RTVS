@@ -84,8 +84,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             var hostEnd = _pipe.ConnectHost();
 
-            ClientToHostWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
-            HostToClientWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
+            ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
+            HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
         }
 
         //public void StartHost() {
