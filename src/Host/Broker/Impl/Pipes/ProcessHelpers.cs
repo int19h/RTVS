@@ -16,7 +16,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 throw new ArgumentException($"Provided identity must be a {nameof(WindowsIdentity)}", "user");
             }
 
-            bool impersonate = WindowsIdentity.GetCurrent().User != winUser.User;
+            bool impersonate = false;  //WindowsIdentity.GetCurrent().User != winUser.User;
             using (impersonate ? winUser.Impersonate() : null) {
                 var primaryToken = IntPtr.Zero;
                 if (impersonate) {

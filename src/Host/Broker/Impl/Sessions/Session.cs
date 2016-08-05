@@ -94,7 +94,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         //    Stream stdin, stdout;
         //    int pid = ProcessHelpers.StartProcessAsUser(User, rhostExePath, $"--rhost-name {Id}", Interpreter.BinPath, out stdin, out stdout);
-        //    Thread.Sleep(10000);
 
         //    _pipe = new MessagePipe();
 
