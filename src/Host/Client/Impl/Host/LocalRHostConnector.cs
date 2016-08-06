@@ -6,20 +6,9 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Security;
-using System.Net.WebSockets;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.WebSockets.Client;
 using Microsoft.Common.Core;
 using Microsoft.Common.Core.Logging;
-using Newtonsoft.Json;
-using static System.FormattableString;
 
 namespace Microsoft.R.Host.Client.Host {
     internal sealed class LocalRHostConnector : RHostConnector {

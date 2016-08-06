@@ -62,7 +62,8 @@ namespace Microsoft.VisualStudio.R.Package.Repl {
         
         private IRInteractiveWorkflow CreateRInteractiveWorkflow() {
             var settings = RToolsSettings.Current;
-            return new RInteractiveWorkflow(_sessionProvider, _connectionsProvider, _historyProvider, _packagesProvider, _plotsProvider, _activeTextViewTracker, _debuggerModeTracker, new RHostBrokerConnector(), _shell, settings, DisposeInstance);
+
+            return new RInteractiveWorkflow(_sessionProvider, _connectionsProvider, _historyProvider, _packagesProvider, _plotsProvider, _activeTextViewTracker, _debuggerModeTracker, new RHostBrokerConnector(settings.BrokerUri), _shell, settings, DisposeInstance);
         }
 
         private void DisposeInstance() {

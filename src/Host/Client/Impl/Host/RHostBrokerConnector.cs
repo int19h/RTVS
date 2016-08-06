@@ -14,12 +14,13 @@ namespace Microsoft.R.Host.Client.Host {
 
         public event EventHandler BrokerChanged;
 
-        public RHostBrokerConnector() {
-            SwitchToLocalBroker(null);
-        }
-
-        public RHostBrokerConnector(Uri brokerUri) {
-            BrokerUri = brokerUri;
+        public RHostBrokerConnector(Uri brokerUri = null) {
+            if (brokerUri == null) {
+                SwitchToLocalBroker(null);
+            } else {
+                BrokerUri = brokerUri;
+                _hostConnector = new RemoteRHostConnector(brokerUri);
+            }
         }
 
         public void Dispose() {
