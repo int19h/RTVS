@@ -22,13 +22,13 @@ using Newtonsoft.Json;
 using static System.FormattableString;
 
 namespace Microsoft.R.Host.Client.Host {
-    internal sealed class LocalRHostConnector : IRHostConnector {
+    internal sealed class LocalRHostConnector : RHostConnector {
         private const int DefaultPort = 5118;
         private const string RHostBrokerExe = "Microsoft.R.Host.Broker.exe";
         private const string RBinPathX64 = @"bin\x64";
         private const string InterpreterId = "local";
 
-        private static readonly bool ShowConsole = true; //!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RTVS_HOST_CONSOLE"));
+        private static readonly bool ShowConsole = true; //string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RTVS_HOST_CONSOLE"));
         private static readonly TimeSpan HeartbeatTimeout =
 #if DEBUG
             // In debug mode, increase the timeout significantly, so that when the host is paused in debugger,
@@ -45,26 +45,19 @@ namespace Microsoft.R.Host.Client.Host {
         private readonly LinesLog _log;
 
         private Process _brokerProcess;
-        private HttpClient _broker;
-        private bool _isDisposed;
 
-        public LocalRHostConnector(string rHome, string rhostDirectory = null) {
+        public LocalRHostConnector(string rHome, string rhostDirectory = null)
+            : base(InterpreterId) {
             _rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
             _rHome = rHome;
-            _log = new LinesLog(FileLogWriter.InTempFolder("Microsoft.R.Host.BrokerConnector"));
-
-            _broker = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true }) {
-                Timeout = TimeSpan.FromSeconds(1)
-            };
-            _broker.DefaultRequestHeaders.Accept.Clear();
-            _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
-        public void Dispose() {
-            if (_isDisposed) {
+        public override void Dispose() {
+            base.Dispose();
+
+            if (IsDisposed) {
                 return;
             }
-            _isDisposed = true;
 
             if (_brokerProcess != null) {
                 if (!_brokerProcess.HasExited) {
@@ -78,7 +71,7 @@ namespace Microsoft.R.Host.Client.Host {
                 }
 
                 LocalRHostConnector connector;
-                _connectors.TryRemove(_broker.BaseAddress.Port, out connector);
+                _connectors.TryRemove(Broker.BaseAddress.Port, out connector);
             }
         }
 
@@ -92,15 +85,19 @@ namespace Microsoft.R.Host.Client.Host {
                 }
 
                 if (_connectors.TryAdd(port, this)) {
-                    _broker.BaseAddress = new Uri($"http://localhost:{port}");
+                    Broker.BaseAddress = new Uri($"http://localhost:{port}");
                     return;
                 }
             }
         }
 
-        public async Task StartBrokerAsync() {
-            if (_isDisposed) {
+        protected override async Task ConnectToBrokerAsync() {
+            if (IsDisposed) {
                 throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
+            }
+
+            if (_brokerProcess != null && !_brokerProcess.HasExited) {
+                return;
             }
 
             string rhostBrokerExe = Path.Combine(_rhostDirectory, RHostBrokerExe);
@@ -116,7 +113,7 @@ namespace Microsoft.R.Host.Client.Host {
                 FileName = rhostBrokerExe,
                 UseShellExecute = false,
                 Arguments =
-                    $" --server.urls {_broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
+                    $" --server.urls {Broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
                     $" --R:autoDetect false --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
             };
 
@@ -146,71 +143,6 @@ namespace Microsoft.R.Host.Client.Host {
             }
 
             throw new RHostTimeoutException("Couldn't start broker process");
-        }
-
-        private async Task PingAsync() {
-            (await _broker.PostAsync("/ping", new StringContent(""))).EnsureSuccessStatusCode();
-        }
-
-        private async Task PingWorker() {
-            try {
-                while (true) {
-                    await PingAsync();
-                    await Task.Delay(1000);
-                }
-            } catch (OperationCanceledException) {
-            } catch (HttpRequestException) {
-            }
-        }
-
-        public async Task<RHost> Connect(string name, IRCallbacks callbacks, string rCommandLineArguments = null, int timeout = 3000, CancellationToken cancellationToken = new CancellationToken()) {
-            if (_isDisposed) {
-                throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
-            }
-
-            await TaskUtilities.SwitchToBackgroundThread();
-
-            if (_brokerProcess?.HasExited != false) {
-                await StartBrokerAsync();
-            }
-
-            rCommandLineArguments = rCommandLineArguments ?? string.Empty;
-
-            var request = new { InterpreterId = InterpreterId };
-            var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
-
-            try {
-                (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
-            } catch (HttpRequestException) {
-                throw;
-            } catch (OperationCanceledException) {
-                throw;
-            }
-
-            var wsClient = new WebSocketClient {
-                KeepAliveInterval = HeartbeatTimeout,
-                SubProtocols = { "Microsoft.R.Host" },
-                ConfigureRequest = httpRequest => {
-                    httpRequest.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
-                    httpRequest.Credentials = CredentialCache.DefaultNetworkCredentials;
-                }
-            };
-
-            var pipeUri = new UriBuilder(_broker.BaseAddress) {
-                Scheme = "ws",
-                Path = $"sessions/{name}/pipe"
-            }.Uri;
-            var socket = await wsClient.ConnectAsync(pipeUri, cancellationToken);
-
-            var transport = new WebSocketMessageTransport(socket);
-
-            var cts = new CancellationTokenSource();
-            cts.Token.Register(() => {
-                _log.RHostProcessExited();
-            });
-
-            var host = new RHost(name, callbacks, transport, null, cts);
-            return host;
         }
     }
 }

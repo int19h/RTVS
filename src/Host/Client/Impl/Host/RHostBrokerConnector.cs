@@ -18,6 +18,10 @@ namespace Microsoft.R.Host.Client.Host {
             SwitchToLocalBroker(null);
         }
 
+        public RHostBrokerConnector(Uri brokerUri) {
+            BrokerUri = brokerUri;
+        }
+
         public void Dispose() {
             _hostConnector?.Dispose();
         }

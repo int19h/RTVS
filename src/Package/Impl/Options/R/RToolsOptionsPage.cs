@@ -109,6 +109,12 @@ namespace Microsoft.VisualStudio.R.Package.Options.R {
         }
 
         [LocCategory("Settings_REngineCategory")]
+        public Uri BrokerUri {
+            get { return RToolsSettings.Current.BrokerUri; }
+            set { RToolsSettings.Current.BrokerUri = value == new Uri("") ? null : value; }
+        }
+
+        [LocCategory("Settings_REngineCategory")]
         [CustomLocDisplayName("Settings_RCodePage")]
         [LocDescription("Settings_RCodePage_Description")]
         [TypeConverter(typeof(EncodingTypeConverter))]
