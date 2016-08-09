@@ -1,8 +1,10 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
+using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Net.Http.Server;
@@ -41,6 +43,13 @@ namespace Microsoft.R.Host.Broker {
 
         public static void Exit() {
             _cts.Cancel();
+
+            Task.Run(async () => {
+                // Give cooperative cancellation 10 seconds to shut the process down gracefully,
+                // but if it didn't work, just terminate it.
+                await Task.Delay(10000);
+                Environment.Exit(1);
+            });
         }
     }
 }
