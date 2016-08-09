@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -51,6 +52,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public override void Write(byte[] message) {
+                Pipe.LogMessage(MessageOrigin.Host, message);
                 Pipe._hostMessages.Post(message);
             }
 
@@ -74,6 +76,8 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public override void Write(byte[] message) {
+                Pipe.LogMessage(MessageOrigin.Client, message);
+
                 ulong id, requestId;
                 Parse(message, out id, out requestId);
 
@@ -129,25 +133,41 @@ namespace Microsoft.R.Host.Broker.Pipes {
             requestId = BitConverter.ToUInt64(message, 8);
         }
 
-        private void LogMessage(string prefix, byte[] messageData) {
+        private enum MessageOrigin {
+            Host,
+            Client
+        }
+
+        private void LogMessage(MessageOrigin origin, byte[] messageData) {
             if (_logger == null) {
                 return;
             }
 
-            var message = new Message(messageData);
-            var sb = new StringBuilder($"{prefix} #{message.Id}# {message.Name} ");
-
-            if (message.IsResponse) {
-                sb.Append($"#{message.RequestId}# ");
+            Message message;
+            try {
+                message = new Message(messageData);
+            } catch (InvalidDataException ex) {
+                _logger.Log(LogLevel.Error, 0, messageData, ex, delegate {
+                    return $"Malformed {origin} message:{Environment.NewLine}{BitConverter.ToString(messageData)}";
+                });
+                return;
             }
 
-            sb.Append(message.Json);
+            _logger.Log(LogLevel.Trace, 0, message, null, delegate {
+                var sb = new StringBuilder($"{origin}: #{message.Id}# {message.Name} ");
 
-            if (message.Blob != null && message.Blob.Length != 0) {
-                sb.Append($" <raw ({message.Blob.Length} bytes)>");
-            }
+                if (message.IsResponse) {
+                    sb.Append($"#{message.RequestId}# ");
+                }
 
-            _logger.LogTrace(sb.ToString());
+                sb.Append(message.Json);
+
+                if (message.Blob != null && message.Blob.Length != 0) {
+                    sb.Append($" <raw ({message.Blob.Length} bytes)>");
+                }
+
+                return sb.ToString();
+            });
         }
     }
 }
