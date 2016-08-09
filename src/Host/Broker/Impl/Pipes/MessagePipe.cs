@@ -8,14 +8,15 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Client;
 
 namespace Microsoft.R.Host.Broker.Pipes {
     public class MessagePipe {
         private readonly ILogger _logger;
-        private readonly ConcurrentQueue<byte[]> _hostMessages = new ConcurrentQueue<byte[]>();
-        private readonly ConcurrentQueue<byte[]> _clientMessages = new ConcurrentQueue<byte[]>();
+        private readonly BufferBlock<byte[]> _hostMessages = new BufferBlock<byte[]>();
+        private readonly BufferBlock<byte[]> _clientMessages = new BufferBlock<byte[]>();
 
         private ConcurrentDictionary<ulong, byte[]> _sentPendingRequests = new ConcurrentDictionary<ulong, byte[]>();
         private Queue<byte[]> _unsentPendingRequests = new Queue<byte[]>();
@@ -50,19 +51,11 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public override void Write(byte[] message) {
-                Pipe._hostMessages.Enqueue(message);
+                Pipe._hostMessages.Post(message);
             }
 
             public override async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
-                byte[] message;
-
-                int i = 0;
-                while (!Pipe._clientMessages.TryDequeue(out message)) {
-                    //await Task.Delay(100, cancellationToken);
-                    if (++i % 1000 == 0) await Task.Yield();
-                }
-
-                return message;
+                return await Pipe._clientMessages.ReceiveAsync();
             }
         }
 
@@ -87,7 +80,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 byte[] request;
                 Pipe._sentPendingRequests.TryRemove(requestId, out request);
 
-                Pipe._clientMessages.Enqueue(message);
+                Pipe._clientMessages.Post(message);
             }
 
             public override async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
@@ -103,11 +96,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 if (Pipe._unsentPendingRequests.Count != 0) {
                     message = Pipe._unsentPendingRequests.Dequeue();
                 } else {
-                    int i = 0;
-                    while (!Pipe._hostMessages.TryDequeue(out message)) {
-                        //await Task.Delay(100, cancellationToken);
-                        if (++i % 1000 == 0) await Task.Yield();
-                    }
+                    message = await Pipe._hostMessages.ReceiveAsync();
                 }
 
                 ulong id, requestId;
