@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
+using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Pipes;
 
@@ -59,7 +60,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             User = user;
         }
 
-        public void StartHost() {
+        public void StartHost(ILogger outputLogger, ILogger messageLogger) {
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
 
@@ -69,6 +70,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 Arguments = $"--rhost-name {Id}",
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
             var shortHome = new StringBuilder(NativeMethods.MAX_PATH);
@@ -76,12 +78,24 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
-            _pipe = new MessagePipe();
-
-            _process = Process.Start(psi);
+            _process = new Process();
+            _process.StartInfo = psi;
             _process.EnableRaisingEvents = true;
-            _process.Exited += delegate { _pipe = null; };
 
+            _process.ErrorDataReceived += (sender, e) => {
+                if (outputLogger != null) {
+                    outputLogger.LogTrace(e.Data);
+                }
+            };
+
+            _process.Exited += delegate {
+                _pipe = null;
+            };
+
+            _process.Start();
+            _process.BeginErrorReadLine();
+
+            _pipe = new MessagePipe(messageLogger);
             var hostEnd = _pipe.ConnectHost();
 
             ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();

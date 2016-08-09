@@ -48,6 +48,9 @@
     <Compile Include="..\..\..\GlobalAssemblyInfo.cs">
       <Link>Properties\GlobalAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="..\..\Client\Impl\Definitions\Message.cs">
+      <Link>Protocol\Message.cs</Link>
+    </Compile>
     <Compile Include="Interpreters\Interpreter.cs" />
     <Compile Include="Interpreters\InterpreterManager.cs" />
     <Compile Include="Lifetime\LifetimeOptions.cs" />
@@ -55,6 +58,7 @@
     <Compile Include="Lifetime\PingController.cs" />
     <Compile Include="Logging\FileLogger.cs" />
     <Compile Include="Logging\FileLoggerProvider.cs" />
+    <Compile Include="Logging\LoggingOptions.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="Pipes\ProcessHelpers.cs" />
     <Compile Include="Pipes\WebSocketPipeAction.cs" />

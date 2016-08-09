@@ -39,7 +39,7 @@ namespace Microsoft.R.Host.Client.Host {
             _log = new LinesLog(FileLogWriter.InTempFolder("Microsoft.R.Host.BrokerConnector"));
 
             _broker = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true }) {
-                Timeout = TimeSpan.FromSeconds(1)
+                Timeout = TimeSpan.FromSeconds(30)
             };
             _broker.DefaultRequestHeaders.Accept.Clear();
             _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -81,7 +81,7 @@ namespace Microsoft.R.Host.Client.Host {
             var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
 
             try {
-                (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
+                (await _broker.PutAsync($"/sessions/{name}", requestContent/*, cancellationToken*/)).EnsureSuccessStatusCode();
             } catch (HttpRequestException) {
                 throw;
             } catch (OperationCanceledException) {

@@ -20,6 +20,7 @@ namespace Microsoft.R.Host.Broker {
 
         public void ConfigureServices(IServiceCollection services) {
             services.AddOptions()
+                .Configure<LoggingOptions>(Program.Configuration.GetSection("logging"))
                 .Configure<LifetimeOptions>(Program.Configuration.GetSection("lifetime"))
                 .Configure<SecurityOptions>(Program.Configuration.GetSection("security"))
                 .Configure<ROptions>(Program.Configuration.GetSection("R"));

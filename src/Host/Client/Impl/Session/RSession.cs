@@ -337,7 +337,14 @@ namespace Microsoft.R.Host.Client.Session {
             using (var evaluation = await evaluationSource.Task) {
                 // Load RTVS R package before doing anything in R since the calls
                 // below calls may depend on functions exposed from the RTVS package
-                await LoadRtvsPackage(evaluation);
+                string libPath;
+                if (BrokerConnector.BrokerUri.Scheme == "file") {
+                    libPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetAssemblyPath());
+                } else {
+                    libPath = ".";
+                }
+                await LoadRtvsPackage(evaluation, libPath);
+
                 if (startupInfo.WorkingDirectory != null) {
                     await evaluation.SetWorkingDirectoryAsync(startupInfo.WorkingDirectory);
                 } else {
@@ -360,8 +367,7 @@ namespace Microsoft.R.Host.Client.Session {
             }
         }
 
-        private static async Task LoadRtvsPackage(IRSessionEvaluation eval) {
-            var libPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetAssemblyPath());
+        private static async Task LoadRtvsPackage(IRSessionEvaluation eval, string libPath) {
             await eval.ExecuteAsync(Invariant($"base::loadNamespace('rtvs', lib.loc = {libPath.ToRStringLiteral()})"));
         }
 
