@@ -31,7 +31,7 @@ namespace Microsoft.R.DataInspection.Test {
         private const REvaluationResultProperties AllFields = unchecked((REvaluationResultProperties)~0);
 
         private readonly MethodInfo _testMethod;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(ValuesTest));
         private readonly IRSessionProvider _sessionProvider;
         private readonly IRSession _session;
 

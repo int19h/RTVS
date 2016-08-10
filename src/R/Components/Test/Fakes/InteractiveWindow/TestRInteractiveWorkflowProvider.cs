@@ -23,6 +23,7 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
     [Export(typeof(TestRInteractiveWorkflowProvider))]
     [PartMetadata(PartMetadataAttributeNames.SkipInEditorTestCompositionCatalog, null)]
     public class TestRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider, IDisposable {
+        private readonly string _testName;
         private readonly IRSessionProvider _sessionProvider;
         private readonly IConnectionManagerProvider _connectionManagerProvider;
         private readonly IRHistoryProvider _historyProvider;
@@ -38,7 +39,8 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
         public IRSessionCallback HostClientApp { get; set; }
 
         [ImportingConstructor]
-        public TestRInteractiveWorkflowProvider(IRSessionProvider sessionProvider
+        public TestRInteractiveWorkflowProvider(string testName
+            , IRSessionProvider sessionProvider
             , IConnectionManagerProvider connectionManagerProvider
             , IRHistoryProvider historyProvider
             , IRPackageManagerProvider packagesProvider
@@ -49,6 +51,8 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
             , [Import(AllowDefault = true)] IRHostBrokerConnector brokerConnector
             , ICoreShell shell
             , IRSettings settings) {
+
+            _testName = testName;
             _sessionProvider = sessionProvider;
             _connectionManagerProvider = connectionManagerProvider;
             _historyProvider = historyProvider;
@@ -80,7 +84,7 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
                 , _plotsProvider
                 , _activeTextViewTracker
                 , _debuggerModeTracker
-                , _brokerConnector ?? new RHostBrokerConnector()
+                , _brokerConnector ?? new RHostBrokerConnector(name: _testName)
                 , _shell
                 , _settings
                 , DisposeInstance);

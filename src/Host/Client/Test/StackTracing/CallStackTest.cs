@@ -26,7 +26,7 @@ namespace Microsoft.R.StackTracing.Test {
     [ExcludeFromCodeCoverage]
     public class CallStackTest : IAsyncLifetime {
         private readonly MethodInfo _testMethod;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(CallStackTest));
         private readonly RSessionProvider _sessionProvider;
         private readonly IRSession _session;
 

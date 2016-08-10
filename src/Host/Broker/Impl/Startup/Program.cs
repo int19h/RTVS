@@ -33,13 +33,6 @@ namespace Microsoft.R.Host.Broker.Startup {
         }
 
         public static void Main(string[] args) {
-            _loggerFactory
-                .AddDebug()
-                .AddConsole(LogLevel.Trace)
-                .AddProvider(new FileLoggerProvider());
-
-            _logger = _loggerFactory.CreateLogger<Program>();
-
             var configBuilder = new ConfigurationBuilder().AddCommandLine(args);
             Configuration = configBuilder.Build();
 
@@ -50,6 +43,16 @@ namespace Microsoft.R.Host.Broker.Startup {
             }
 
             ConfigurationBinder.Bind(Configuration.GetSection("startup"), _startupOptions);
+
+            _loggerFactory
+                .AddDebug()
+                .AddConsole(LogLevel.Trace)
+                .AddProvider(new FileLoggerProvider(_startupOptions.Name));
+            _logger = _loggerFactory.CreateLogger<Program>();
+
+            if (_startupOptions.Name != null) {
+                _logger.LogInformation($"Broker name {_startupOptions.Name} assigned");
+            }
 
             if (!_startupOptions.AutoSelectPort) {
                 CreateWebHost().Run();

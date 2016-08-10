@@ -21,7 +21,7 @@ using Microsoft.UnitTests.Core.XUnit.MethodFixtures;
 
 namespace Microsoft.R.Host.Client.Test {
     [ExcludeFromCodeCoverage]
-    public class IdeGraphicsDeviceTest {
+    public class IdeGraphicsDeviceTest : IDisposable {
         private readonly GraphicsDeviceTestFilesFixture _files;
         private readonly MethodInfo _testMethod;
 
@@ -35,9 +35,15 @@ namespace Microsoft.R.Host.Client.Test {
         public List<string> PlotFilePaths { get; } = new List<string>();
         public List<PlotMessage> OriginalPlotMessages { get; } = new List<PlotMessage>();
 
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(IdeGraphicsDeviceTest));
+
         public IdeGraphicsDeviceTest(GraphicsDeviceTestFilesFixture files, TestMethodFixture testMethod) {
             _files = files;
             _testMethod = testMethod.MethodInfo;
+        }
+
+        public void Dispose() {
+            _brokerConnector.Dispose();
         }
 
         private int X(double percentX) {
@@ -559,9 +565,8 @@ dev.off()
         }
 
         private async Task ExecuteInSession(string[] inputs, IRSessionCallback app) {
-            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), _brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);
@@ -584,9 +589,8 @@ dev.off()
 
         private async Task<IEnumerable<string>> ExportToImageAsync(string[] inputs, string[] format, string[] paths, int widthInPixels, int heightInPixels, int resolution) {
             var app = new RHostClientTestApp { PlotHandler = OnPlot };
-            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), _brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);
@@ -613,9 +617,8 @@ dev.off()
 
         private async Task<IEnumerable<string>> ExportToPdfAsync(string[] inputs, string filePath, int width, int height) {
             var app = new RHostClientTestApp { PlotHandler = OnPlot };
-            using (var brokerConnector = new RHostBrokerConnector())
             using (var sessionProvider = new RSessionProvider()) {
-                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), brokerConnector);
+                var session = sessionProvider.GetOrCreate(Guid.NewGuid(), _brokerConnector);
                 await session.StartHostAsync(new RHostStartupInfo {
                     Name = _testMethod.Name
                 }, app, 50000);

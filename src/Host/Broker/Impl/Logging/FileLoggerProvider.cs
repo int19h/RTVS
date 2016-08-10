@@ -12,16 +12,19 @@ namespace Microsoft.R.Host.Broker.Logging {
         private readonly StreamWriter _writer;
         private readonly List<FileLogger> _loggers = new List<FileLogger>();
 
-        public FileLoggerProvider()
-            : this(GetLogFileName()) {
+        public FileLoggerProvider(string name = null)
+            : this(File.CreateText(GetLogFileName(name))) {
         }
 
-        public FileLoggerProvider(string logFileName) {
-            _writer = File.CreateText(logFileName);
+        public FileLoggerProvider(StreamWriter writer) {
+            _writer = writer;
         }
 
-        private static string GetLogFileName() {
-            return Path.Combine(Path.GetTempPath(), $@"Microsoft.R.Host.Broker_{DateTime.Now:yyyyMdd_HHmmss}_pid{Process.GetCurrentProcess().Id}.log");
+        private static string GetLogFileName(string name) {
+            if (!string.IsNullOrEmpty(name)) {
+                name = "_" + name;
+            }
+            return Path.Combine(Path.GetTempPath(), $@"Microsoft.R.Host.Broker{name}_{DateTime.Now:yyyyMdd_HHmmss}_pid{Process.GetCurrentProcess().Id}.log");
         }
 
         public ILogger CreateLogger(string categoryName) {

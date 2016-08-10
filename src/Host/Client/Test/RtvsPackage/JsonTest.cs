@@ -23,7 +23,7 @@ namespace Microsoft.R.RtvsPackage.Test {
         private const string SameAsInput = "<INPUT>";
 
         private readonly MethodInfo _testMethod;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(JsonTest));
         private readonly IRSessionProvider _sessionProvider;
         private readonly IRSession _session;
 
@@ -34,11 +34,9 @@ namespace Microsoft.R.RtvsPackage.Test {
         }
 
         public async Task InitializeAsync() {
-            using (var hostFactory = new LocalRHostConnector(new RInstallation().GetRInstallPath())) {
-                await _session.StartHostAsync(new RHostStartupInfo {
-                    Name = _testMethod.Name
-                }, new RHostClientTestApp(), 50000);
-            }
+            await _session.StartHostAsync(new RHostStartupInfo {
+                Name = _testMethod.Name
+            }, new RHostClientTestApp(), 50000);
         }
 
         public async Task DisposeAsync() {

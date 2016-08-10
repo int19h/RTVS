@@ -5,6 +5,8 @@ using System.IO.Pipes;
 
 namespace Microsoft.R.Host.Broker.Startup {
     public class StartupOptions {
+        public string Name { get; set; }
+
         public bool AutoSelectPort { get; set; }
 
         /// <seealso cref="AnonymousPipeServerStream.GetClientHandleAsString"/> 

@@ -20,7 +20,7 @@ namespace Microsoft.R.Host.Client.Test.RtvsPackage {
     [ExcludeFromCodeCoverage]
     public class BlobsTest : IAsyncLifetime {
         private readonly MethodInfo _testMethod;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(BlobsTest));
         private readonly IRSessionProvider _sessionProvider;
         private readonly IRSession _session;
 

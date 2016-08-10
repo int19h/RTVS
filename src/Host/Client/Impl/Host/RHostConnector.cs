@@ -83,7 +83,7 @@ namespace Microsoft.R.Host.Client.Host {
             var requestContent = new StringContent(JsonConvert.SerializeObject(request), Encoding.UTF8, "application/json");
 
             try {
-                (await _broker.PutAsync($"/sessions/{name}", requestContent/*, cancellationToken*/)).EnsureSuccessStatusCode();
+                (await _broker.PutAsync($"/sessions/{name}", requestContent, cancellationToken)).EnsureSuccessStatusCode();
             } catch (HttpRequestException) {
                 throw;
             } catch (OperationCanceledException) {

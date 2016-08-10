@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.R.Package.Test.DataInspect {
     [Collection(CollectionNames.NonParallel)]   // required for tests using R Host 
     public class REnvironmentProviderTest : IAsyncLifetime {
         private readonly MethodInfo _testMethod;
-        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector();
+        private readonly IRHostBrokerConnector _brokerConnector = new RHostBrokerConnector(name: nameof(REnvironmentProviderTest));
         private readonly IRSessionProvider _sessionProvider;
         private readonly IRSession _session;
 

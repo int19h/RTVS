@@ -29,6 +29,7 @@ namespace Microsoft.R.Host.Client.Host {
             TimeSpan.FromSeconds(5);
 #endif
 
+        private readonly string _name;
         private readonly string _rhostDirectory;
         private readonly string _rHome;
         private readonly LinesLog _log;
@@ -37,19 +38,20 @@ namespace Microsoft.R.Host.Client.Host {
         private Process _brokerProcess;
         private bool _isConnected;
 
-        public LocalRHostConnector(string rHome, string rhostDirectory = null)
+        public LocalRHostConnector(string name, string rHome, string rhostDirectory = null)
             : base(InterpreterId) {
 
+            _name = name;
             _rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
             _rHome = rHome;
         }
 
         public override void Dispose() {
-            base.Dispose();
-
             if (IsDisposed) {
                 return;
             }
+
+            base.Dispose();
 
             if (_brokerProcess != null) {
                 if (!_brokerProcess.HasExited) {
@@ -94,7 +96,8 @@ namespace Microsoft.R.Host.Client.Host {
                         FileName = rhostBrokerExe,
                         UseShellExecute = false,
                         Arguments =
-                            $" --startup:autoSelectPort true " +
+                            $" --startup:name \"{_name}\"" +
+                            $" --startup:autoSelectPort true" +
                             $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
                             $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
                             $" --R:autoDetect false" +
