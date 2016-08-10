@@ -6,6 +6,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
+using System.Net;
+using System.Net.Http;
+using System.Net.Security;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,10 +32,11 @@ namespace Microsoft.R.Host.Client.Host {
             TimeSpan.FromSeconds(5);
 #endif
 
+        private static readonly NetworkCredential _credentials = new NetworkCredential("RTVS", Guid.NewGuid().ToString());
+
         private readonly string _name;
         private readonly string _rhostDirectory;
         private readonly string _rHome;
-        private readonly LinesLog _log;
         private readonly SemaphoreSlim _connectSemaphore = new SemaphoreSlim(1, 1);
 
         private Process _brokerProcess;
@@ -65,6 +69,18 @@ namespace Microsoft.R.Host.Client.Host {
                 }
             }
         }
+
+        protected override HttpClientHandler GetHttpClientHandler() {
+            return new HttpClientHandler {
+                Credentials = _credentials
+            };
+        }
+
+        protected override void ConfigureWebSocketRequest(HttpWebRequest request) {
+            request.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
+            request.Credentials = _credentials;
+        }
+
         protected override async Task ConnectToBrokerAsync() {
             if (IsDisposed) {
                 throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
@@ -100,6 +116,7 @@ namespace Microsoft.R.Host.Client.Host {
                             $" --startup:autoSelectPort true" +
                             $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
                             $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
+                            $" --security:secret \"{_credentials.Password}\"" +
                             $" --R:autoDetect false" +
                             $" --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
                     };
@@ -108,24 +125,25 @@ namespace Microsoft.R.Host.Client.Host {
                         psi.CreateNoWindow = true;
                     }
 
-                    var cts = new CancellationTokenSource(5000);
-
                     process = Process.Start(psi);
                     process.EnableRaisingEvents = true;
+
+                    var cts = new CancellationTokenSource(50000);
                     process.Exited += delegate {
                         cts.Cancel();
                         _isConnected = false;
                     };
 
-                    var buffer = new byte[0x1000];
-                    int count;
+                    uriPipe.DisposeLocalCopyOfClientHandle();
+
+                    var serverUriData = new MemoryStream();
                     try {
-                        count = await uriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                        await uriPipe.CopyToAsync(serverUriData, 0x1000, cts.Token);
                     } catch (OperationCanceledException) {
                         throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
                     }
 
-                    string serverUri = Encoding.UTF8.GetString(buffer).TrimEnd();
+                    string serverUri = Encoding.UTF8.GetString(serverUriData.ToArray()).TrimEnd();
                     Broker.BaseAddress = new Uri(serverUri);
                 }
 

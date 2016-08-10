@@ -62,11 +62,10 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         public void StartHost(ILogger outputLogger, ILogger messageLogger) {
-            // TODO: add support for launching processes as different user, when user logged in with password, rather than via NTLM.
-            var winUser = User as WindowsIdentity;
-            if (winUser == null || winUser.User != WindowsIdentity.GetCurrent().User) {
-                throw new UnauthorizedAccessException();
-            }
+            //var winUser = User as WindowsIdentity;
+            //if (winUser != null || winUser.User != WindowsIdentity.GetCurrent().User) {
+            //    throw new UnauthorizedAccessException();
+            //}
 
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);

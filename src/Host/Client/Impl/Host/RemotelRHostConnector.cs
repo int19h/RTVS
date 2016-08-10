@@ -2,13 +2,10 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Collections.Concurrent;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Security;
 using System.Threading.Tasks;
-using Microsoft.Common.Core;
-using Microsoft.Common.Core.Logging;
 
 namespace Microsoft.R.Host.Client.Host {
     internal sealed class RemoteRHostConnector : RHostConnector {
@@ -17,6 +14,17 @@ namespace Microsoft.R.Host.Client.Host {
 
             CreateHttpClient();
             Broker.BaseAddress = brokerUri;
+        }
+
+        protected override HttpClientHandler GetHttpClientHandler() {
+            return new HttpClientHandler {
+                UseDefaultCredentials = true
+            };
+        }
+
+        protected override void ConfigureWebSocketRequest(HttpWebRequest request) {
+            request.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
+            request.Credentials = CredentialCache.DefaultNetworkCredentials;
         }
 
         protected override Task ConnectToBrokerAsync() {

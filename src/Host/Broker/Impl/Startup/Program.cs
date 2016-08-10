@@ -86,10 +86,13 @@ namespace Microsoft.R.Host.Broker.Startup {
             var webHostBuilder = new WebHostBuilder()
                 .UseLoggerFactory(_loggerFactory)
                 .UseConfiguration(Configuration)
-                .UseWebListener(options => {
-                    options.Listener.AuthenticationManager.AuthenticationSchemes = AuthenticationSchemes.NTLM | AuthenticationSchemes.AllowAnonymous;
-                    options.Listener.TimeoutManager.MinSendBytesPerSecond = uint.MaxValue;
-                    options.Listener.BufferResponses = false;
+                //.UseWebListener(options => {
+                //    options.Listener.AuthenticationManager.AuthenticationSchemes = AuthenticationSchemes.NTLM | AuthenticationSchemes.AllowAnonymous;
+                //    options.Listener.TimeoutManager.MinSendBytesPerSecond = uint.MaxValue;
+                //    options.Listener.BufferResponses = false;
+                //})
+                .UseKestrel(options => {
+                    //options.UseConnectionLogging();
                 })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<Startup>();

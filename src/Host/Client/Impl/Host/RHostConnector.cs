@@ -39,13 +39,17 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         protected void CreateHttpClient() {
-            _broker = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true }) {
+            _broker = new HttpClient(GetHttpClientHandler()) {
                 Timeout = TimeSpan.FromSeconds(30)
             };
 
             _broker.DefaultRequestHeaders.Accept.Clear();
             _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
+
+        protected abstract HttpClientHandler GetHttpClientHandler();
+
+        protected abstract void ConfigureWebSocketRequest(HttpWebRequest request);
 
         public virtual void Dispose() {
             IsDisposed = true;
@@ -93,10 +97,7 @@ namespace Microsoft.R.Host.Client.Host {
             var wsClient = new WebSocketClient {
                 KeepAliveInterval = HeartbeatTimeout,
                 SubProtocols = { "Microsoft.R.Host" },
-                ConfigureRequest = httpRequest => {
-                    httpRequest.AuthenticationLevel = AuthenticationLevel.MutualAuthRequested;
-                    httpRequest.Credentials = CredentialCache.DefaultNetworkCredentials;
-                }
+                ConfigureRequest = ConfigureWebSocketRequest
             };
 
             var pipeUri = new UriBuilder(_broker.BaseAddress) {

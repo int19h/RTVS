@@ -1411,6 +1411,7 @@
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.Extensions.WebEncoders.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Antiforgery.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Authorization.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Authentication.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Cors.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Cryptography.Internal.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.DataProtection.Abstractions.dll" /> 
@@ -1443,6 +1444,7 @@
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Routing.Abstractions.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Routing.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Server.WebListener.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.Server.Kestrel.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.WebSockets.Protocol.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.WebSockets.Server.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.AspNetCore.WebUtilities.dll" /> 
@@ -1465,6 +1467,7 @@
 <VSIXSourceItem Include="$(OutputPath)\System.IO.Compression.ZipFile.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.IO.FileSystem.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.IO.FileSystem.Primitives.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\System.Numerics.Vectors.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Reflection.Metadata.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Runtime.InteropServices.RuntimeInformation.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Runtime.Serialization.Primitives.dll" /> 
@@ -1475,6 +1478,7 @@
 <VSIXSourceItem Include="$(OutputPath)\System.Text.Encoding.CodePages.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Text.Encodings.Web.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Threading.Tasks.Dataflow.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\System.Threading.Tasks.Extensions.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Threading.Thread.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Xml.XmlDocument.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\System.Xml.XPath.dll" /> 
@@ -1484,6 +1488,8 @@
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.CodeAnalysis.CSharp.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.CodeAnalysis.Desktop.dll" /> 
 <VSIXSourceItem Include="$(OutputPath)\Microsoft.CodeAnalysis.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\Odachi.AspNetCore.Authentication.Basic.dll" /> 
+<VSIXSourceItem Include="$(OutputPath)\libuv.dll" /> 
 
       <VSIXSourceItem Include="$(OutputPath)\ItemTemplates\**\*.*">
         <VSIXSubPath>ItemTemplates</VSIXSubPath>

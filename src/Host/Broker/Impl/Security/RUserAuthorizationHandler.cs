@@ -16,20 +16,18 @@ namespace Microsoft.R.Host.Broker.Security {
 
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, RUserAuthorizationRequirement requirement) {
             // If NTLM was used, only allow the same user as the one running the broker (used for local scenarios).
-            var winUser = context.User.Identity as WindowsIdentity;
-            if (winUser != null) {
-                if (winUser.User == WindowsIdentity.GetCurrent().User) {
-                    context.Succeed(requirement);
-                }
-                return Task.CompletedTask;
-            }
-
-            // TODO: enable this for users who supply explicit credentials (i.e. non-NTLM)
-            // once Session accounts for them when laucnhing host process.
-            //if (context.User.IsInRole(_securityOptions.AllowedGroup)) {
-            //    context.Succeed(requirement);
+            //var winUser = context.User.Identity as WindowsIdentity;
+            //if (winUser != null) {
+            //    if (winUser.User == WindowsIdentity.GetCurrent().User) {
+            //        context.Succeed(requirement);
+            //    }
             //    return Task.CompletedTask;
             //}
+
+            if (context.User.IsInRole(_securityOptions.AllowedGroup)) {
+                context.Succeed(requirement);
+                return Task.CompletedTask;
+            }
 
             return Task.CompletedTask;
         }
