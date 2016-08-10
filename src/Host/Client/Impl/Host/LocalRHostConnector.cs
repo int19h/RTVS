@@ -6,6 +6,9 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
 using Microsoft.Common.Core.Logging;
@@ -26,8 +29,6 @@ namespace Microsoft.R.Host.Client.Host {
 #else
             TimeSpan.FromSeconds(5);
 #endif
-
-        private static readonly ConcurrentDictionary<int, LocalRHostConnector> _connectors = new ConcurrentDictionary<int, LocalRHostConnector>();
 
         private readonly string _rhostDirectory;
         private readonly string _rHome;
@@ -58,25 +59,6 @@ namespace Microsoft.R.Host.Client.Host {
 
                     _brokerProcess = null;
                 }
-
-                LocalRHostConnector connector;
-                _connectors.TryRemove(Broker.BaseAddress.Port, out connector);
-            }
-        }
-
-        private void ReserveBrokerUri() {
-            while (true) {
-                var usedPorts = _connectors.Keys;
-
-                int port = DefaultPort;
-                while (usedPorts.Contains(port)) {
-                    ++port;
-                }
-
-                if (_connectors.TryAdd(port, this)) {
-                    Broker.BaseAddress = new Uri($"http://localhost:{port}");
-                    return;
-                }
             }
         }
 
@@ -96,42 +78,67 @@ namespace Microsoft.R.Host.Client.Host {
 
             await TaskUtilities.SwitchToBackgroundThread();
 
-            ReserveBrokerUri();
+            var uriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
 
             var psi = new ProcessStartInfo {
                 FileName = rhostBrokerExe,
                 UseShellExecute = false,
                 Arguments =
-                    $" --server.urls {Broker.BaseAddress} --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
-                    $" --R:autoDetect false --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
+                    //$" --server.urls {Broker.BaseAddress}" +
+                    $" --startup:autoSelectPort true " +
+                    $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
+                    $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
+                    $" --R:autoDetect false" +
+                    $" --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
             };
 
             if (!ShowConsole) {
                 psi.CreateNoWindow = true;
             }
 
+            var cts = new CancellationTokenSource(5000);
+
             _brokerProcess = Process.Start(psi);
             _brokerProcess.EnableRaisingEvents = true;
-            _brokerProcess.Exited += delegate {
-            };
+            _brokerProcess.Exited += delegate { cts.Cancel(); };
 
-            for (int i = 0; i < 100; ++i) {
-                await Task.Delay(1000);
-                try {
-                    await PingAsync();
-                    //Task.Run(PingWorker).DoNotWait();
-                    return;
-                } catch (OperationCanceledException) {
-                }
-            }
-
+            var buffer = new byte[0x1000];
+            int count;
             try {
-                _brokerProcess.Kill();
-                _brokerProcess = null;
-            } catch (Exception) {
+                count = await uriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+            } catch (OperationCanceledException) {
+                try {
+                    _brokerProcess.Kill();
+                    _brokerProcess = null;
+                } catch (Exception) {
+                }
+
+                throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
             }
 
-            throw new RHostTimeoutException("Couldn't start broker process");
+            string serverUri = Encoding.UTF8.GetString(buffer).TrimEnd();
+            Broker.BaseAddress = new Uri(serverUri);
+
+            uriPipe.DisposeLocalCopyOfClientHandle();
+
+
+            //for (int i = 0; i < 100; ++i) {
+            //    await Task.Delay(1000);
+            //    try {
+            //        await PingAsync();
+            //        //Task.Run(PingWorker).DoNotWait();
+            //        return;
+            //    } catch (OperationCanceledException) {
+            //    }
+            //}
+
+            //try {
+            //    _brokerProcess.Kill();
+            //    _brokerProcess = null;
+            //} catch (Exception) {
+            //}
+
+            //throw new RHostTimeoutException("Couldn't start broker process");
         }
     }
 }

@@ -13,7 +13,7 @@ using Microsoft.R.Host.Broker.Logging;
 using Microsoft.R.Host.Broker.Security;
 using Microsoft.R.Host.Broker.Sessions;
 
-namespace Microsoft.R.Host.Broker {
+namespace Microsoft.R.Host.Broker.Startup {
     public class Startup {
         public Startup(IHostingEnvironment env) {
         }
@@ -41,12 +41,12 @@ namespace Microsoft.R.Host.Broker {
             services.AddMvc();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, LifetimeManager lifetimeManager, InterpreterManager interpreterManager) {
-            loggerFactory
-                .AddDebug()
-                .AddConsole(LogLevel.Trace)
-                .AddProvider(new FileLoggerProvider());
-
+        public void Configure(
+            IApplicationBuilder app,
+            IHostingEnvironment env,
+            LifetimeManager lifetimeManager,
+            InterpreterManager interpreterManager
+        ) {
             lifetimeManager.Initialize();
             interpreterManager.Initialize();
 

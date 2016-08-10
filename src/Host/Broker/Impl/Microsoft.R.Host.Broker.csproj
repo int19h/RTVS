@@ -63,7 +63,8 @@
     <Compile Include="Pipes\ProcessHelpers.cs" />
     <Compile Include="Pipes\WebSocketPipeAction.cs" />
     <Compile Include="Security\Policies.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="Startup\StartupOptions.cs" />
+    <Compile Include="Startup\Program.cs" />
     <Compile Include="Sessions\Session.cs" />
     <Compile Include="Sessions\SessionCreateRequest.cs" />
     <Compile Include="Sessions\SessionManager.cs" />
@@ -77,7 +78,7 @@
     <Compile Include="Security\RUserAuthorizationRequirement.cs" />
     <Compile Include="Security\SecurityOptions.cs" />
     <Compile Include="Interpreters\ROptions.cs" />
-    <Compile Include="Startup.cs" />
+    <Compile Include="Startup\Startup.cs" />
     <Compile Include="Interpreters\InterpretersController.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>

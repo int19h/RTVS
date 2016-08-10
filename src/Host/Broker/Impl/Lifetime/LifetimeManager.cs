@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.R.Host.Broker.Startup;
 
 namespace Microsoft.R.Host.Broker.Lifetime {
     public class LifetimeManager {
