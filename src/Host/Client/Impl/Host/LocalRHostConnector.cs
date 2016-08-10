@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -33,11 +32,14 @@ namespace Microsoft.R.Host.Client.Host {
         private readonly string _rhostDirectory;
         private readonly string _rHome;
         private readonly LinesLog _log;
+        private readonly SemaphoreSlim _connectSemaphore = new SemaphoreSlim(1, 1);
 
         private Process _brokerProcess;
+        private bool _isConnected;
 
         public LocalRHostConnector(string rHome, string rhostDirectory = null)
             : base(InterpreterId) {
+
             _rhostDirectory = rhostDirectory ?? Path.GetDirectoryName(typeof(RHost).Assembly.GetAssemblyPath());
             _rHome = rHome;
         }
@@ -61,84 +63,79 @@ namespace Microsoft.R.Host.Client.Host {
                 }
             }
         }
-
         protected override async Task ConnectToBrokerAsync() {
             if (IsDisposed) {
                 throw new ObjectDisposedException(typeof(LocalRHostConnector).FullName);
             }
 
-            if (_brokerProcess != null && !_brokerProcess.HasExited) {
-                return;
-            }
+            await TaskUtilities.SwitchToBackgroundThread();
 
+            try {
+                await _connectSemaphore.WaitAsync();
+                if (!_isConnected) {
+                    CreateHttpClient();
+                    await ConnectToBrokerWorker();
+                }
+            } finally {
+                _connectSemaphore.Release();
+            }
+        }
+
+        private async Task ConnectToBrokerWorker() {
             string rhostBrokerExe = Path.Combine(_rhostDirectory, RHostBrokerExe);
             if (!File.Exists(rhostBrokerExe)) {
                 throw new RHostBinaryMissingException();
             }
 
-            await TaskUtilities.SwitchToBackgroundThread();
-
-            var uriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
-
-            var psi = new ProcessStartInfo {
-                FileName = rhostBrokerExe,
-                UseShellExecute = false,
-                Arguments =
-                    //$" --server.urls {Broker.BaseAddress}" +
-                    $" --startup:autoSelectPort true " +
-                    $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
-                    $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
-                    $" --R:autoDetect false" +
-                    $" --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
-            };
-
-            if (!ShowConsole) {
-                psi.CreateNoWindow = true;
-            }
-
-            var cts = new CancellationTokenSource(5000);
-
-            _brokerProcess = Process.Start(psi);
-            _brokerProcess.EnableRaisingEvents = true;
-            _brokerProcess.Exited += delegate { cts.Cancel(); };
-
-            var buffer = new byte[0x1000];
-            int count;
+            Process process = null;
             try {
-                count = await uriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-            } catch (OperationCanceledException) {
-                try {
-                    _brokerProcess.Kill();
-                    _brokerProcess = null;
-                } catch (Exception) {
+                using (var uriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable)) {
+                    var psi = new ProcessStartInfo {
+                        FileName = rhostBrokerExe,
+                        UseShellExecute = false,
+                        Arguments =
+                            $" --startup:autoSelectPort true " +
+                            $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
+                            $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
+                            $" --R:autoDetect false" +
+                            $" --R:interpreters:{InterpreterId}:basePath \"{_rHome}\""
+                    };
+
+                    if (!ShowConsole) {
+                        psi.CreateNoWindow = true;
+                    }
+
+                    var cts = new CancellationTokenSource(5000);
+
+                    process = Process.Start(psi);
+                    process.EnableRaisingEvents = true;
+                    process.Exited += delegate {
+                        cts.Cancel();
+                        _isConnected = false;
+                    };
+
+                    var buffer = new byte[0x1000];
+                    int count;
+                    try {
+                        count = await uriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                    } catch (OperationCanceledException) {
+                        throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
+                    }
+
+                    string serverUri = Encoding.UTF8.GetString(buffer).TrimEnd();
+                    Broker.BaseAddress = new Uri(serverUri);
                 }
 
-                throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
+                _brokerProcess = process;
+                _isConnected = true;
+            } finally {
+                if (!_isConnected) {
+                    try {
+                        process?.Kill();
+                    } catch (Exception) {
+                    }
+                }
             }
-
-            string serverUri = Encoding.UTF8.GetString(buffer).TrimEnd();
-            Broker.BaseAddress = new Uri(serverUri);
-
-            uriPipe.DisposeLocalCopyOfClientHandle();
-
-
-            //for (int i = 0; i < 100; ++i) {
-            //    await Task.Delay(1000);
-            //    try {
-            //        await PingAsync();
-            //        //Task.Run(PingWorker).DoNotWait();
-            //        return;
-            //    } catch (OperationCanceledException) {
-            //    }
-            //}
-
-            //try {
-            //    _brokerProcess.Kill();
-            //    _brokerProcess = null;
-            //} catch (Exception) {
-            //}
-
-            //throw new RHostTimeoutException("Couldn't start broker process");
         }
     }
 }

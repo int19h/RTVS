@@ -14,6 +14,8 @@ namespace Microsoft.R.Host.Client.Host {
     internal sealed class RemoteRHostConnector : RHostConnector {
         public RemoteRHostConnector(Uri brokerUri)
             : base(brokerUri.Fragment) {
+
+            CreateHttpClient();
             Broker.BaseAddress = brokerUri;
         }
 

@@ -35,12 +35,14 @@ namespace Microsoft.R.Host.Client.Host {
 
         protected RHostConnector(string interpreterId) {
             _interpreterId = interpreterId;
-
             _log = new LinesLog(FileLogWriter.InTempFolder("Microsoft.R.Host.BrokerConnector"));
+        }
 
+        protected void CreateHttpClient() {
             _broker = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true }) {
                 Timeout = TimeSpan.FromSeconds(30)
             };
+
             _broker.DefaultRequestHeaders.Accept.Clear();
             _broker.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
