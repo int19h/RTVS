@@ -17,6 +17,8 @@ using Microsoft.R.Host.Broker.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO.Pipes;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Newtonsoft.Json;
+using System.Text;
 
 namespace Microsoft.R.Host.Broker.Startup {
     public class Program {
@@ -51,7 +53,7 @@ namespace Microsoft.R.Host.Broker.Startup {
             _logger = _loggerFactory.CreateLogger<Program>();
 
             if (_startupOptions.Name != null) {
-                _logger.LogInformation($"Broker name {_startupOptions.Name} assigned");
+                _logger.LogInformation($"Broker name '{_startupOptions.Name}' assigned");
             }
 
             if (!_startupOptions.AutoSelectPort) {
@@ -123,12 +125,11 @@ namespace Microsoft.R.Host.Broker.Startup {
 
                 var applicationLifetime = webHost.Services.GetService<IApplicationLifetime>();
                 applicationLifetime.ApplicationStarted.Register(() => {
-                    using (pipe)
-                    using (var writer = new StreamWriter(pipe)) {
-                        foreach (string address in serverAddresses.Addresses) {
-                            writer.WriteLine(address);
-                        }
+                    using (pipe) {
+                        var serverUriData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(serverAddresses.Addresses));
+                        pipe.Write(serverUriData, 0, serverUriData.Length);
                     }
+
                     _logger.LogInformation($"Wrote server.urls to pipe '{pipeHandle}'.");
                 });
             }

@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
 using Microsoft.Common.Core.Logging;
+using Newtonsoft.Json;
 
 namespace Microsoft.R.Host.Client.Host {
     internal sealed class LocalRHostConnector : RHostConnector {
@@ -107,14 +108,14 @@ namespace Microsoft.R.Host.Client.Host {
 
             Process process = null;
             try {
-                using (var uriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable)) {
+                using (var serverUriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable)) {
                     var psi = new ProcessStartInfo {
                         FileName = rhostBrokerExe,
                         UseShellExecute = false,
                         Arguments =
                             $" --startup:name \"{_name}\"" +
                             $" --startup:autoSelectPort true" +
-                            $" --startup:writeServerUrlsToPipe {uriPipe.GetClientHandleAsString()}" +
+                            $" --startup:writeServerUrlsToPipe {serverUriPipe.GetClientHandleAsString()}" +
                             $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
                             $" --security:secret \"{_credentials.Password}\"" +
                             $" --R:autoDetect false" +
@@ -128,23 +129,34 @@ namespace Microsoft.R.Host.Client.Host {
                     process = Process.Start(psi);
                     process.EnableRaisingEvents = true;
 
-                    var cts = new CancellationTokenSource(50000);
+                    var cts = new CancellationTokenSource(10000);
                     process.Exited += delegate {
                         cts.Cancel();
                         _isConnected = false;
                     };
 
-                    uriPipe.DisposeLocalCopyOfClientHandle();
-
                     var serverUriData = new MemoryStream();
                     try {
-                        await uriPipe.CopyToAsync(serverUriData, 0x1000, cts.Token);
+                        // Pipes are special in that a zero-length read is not an indicator of end-of-stream.
+                        // Stream.CopyTo uses a zero-length read as indicator of end-of-stream, so it cannot 
+                        // be used here. Instead, copy the data manually, using PipeStream.IsConnected to detect
+                        // when the other side has finished writing and closed the pipe.
+                        var buffer = new byte[0x1000];
+                        do {
+                            int count = await serverUriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                            serverUriData.Write(buffer, 0, count);
+                            serverUriPipe.DisposeLocalCopyOfClientHandle();
+                        } while (serverUriPipe.IsConnected);
                     } catch (OperationCanceledException) {
                         throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
                     }
 
-                    string serverUri = Encoding.UTF8.GetString(serverUriData.ToArray()).TrimEnd();
-                    Broker.BaseAddress = new Uri(serverUri);
+                    var serverUri = JsonConvert.DeserializeObject<Uri[]>(Encoding.UTF8.GetString(serverUriData.ToArray()));
+                    if (serverUri.Length != 1) {
+                        throw new RHostDisconnectedException("Unexpected number of endpoint URIs received from broker.");
+                    }
+
+                    Broker.BaseAddress = serverUri[0];
                 }
 
                 _brokerProcess = process;

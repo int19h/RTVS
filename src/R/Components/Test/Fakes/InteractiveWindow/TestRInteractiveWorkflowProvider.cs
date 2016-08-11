@@ -23,7 +23,6 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
     [Export(typeof(TestRInteractiveWorkflowProvider))]
     [PartMetadata(PartMetadataAttributeNames.SkipInEditorTestCompositionCatalog, null)]
     public class TestRInteractiveWorkflowProvider : IRInteractiveWorkflowProvider, IDisposable {
-        private readonly string _testName;
         private readonly IRSessionProvider _sessionProvider;
         private readonly IConnectionManagerProvider _connectionManagerProvider;
         private readonly IRHistoryProvider _historyProvider;
@@ -38,9 +37,10 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
         private Lazy<IRInteractiveWorkflow> _instanceLazy;
         public IRSessionCallback HostClientApp { get; set; }
 
+        public string TestName { get; set; }
+
         [ImportingConstructor]
-        public TestRInteractiveWorkflowProvider(string testName
-            , IRSessionProvider sessionProvider
+        public TestRInteractiveWorkflowProvider(IRSessionProvider sessionProvider
             , IConnectionManagerProvider connectionManagerProvider
             , IRHistoryProvider historyProvider
             , IRPackageManagerProvider packagesProvider
@@ -51,8 +51,6 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
             , [Import(AllowDefault = true)] IRHostBrokerConnector brokerConnector
             , ICoreShell shell
             , IRSettings settings) {
-
-            _testName = testName;
             _sessionProvider = sessionProvider;
             _connectionManagerProvider = connectionManagerProvider;
             _historyProvider = historyProvider;
@@ -77,14 +75,15 @@ namespace Microsoft.R.Components.Test.Fakes.InteractiveWindow {
         }
         
         private IRInteractiveWorkflow CreateRInteractiveWorkflow() {
-            return new RInteractiveWorkflow(_sessionProvider
+            return new RInteractiveWorkflow(TestName
+                , _sessionProvider
                 , _connectionManagerProvider
                 , _historyProvider
                 , _packagesProvider
                 , _plotsProvider
                 , _activeTextViewTracker
                 , _debuggerModeTracker
-                , _brokerConnector ?? new RHostBrokerConnector(name: _testName)
+                , _brokerConnector ?? new RHostBrokerConnector(name: TestName)
                 , _shell
                 , _settings
                 , DisposeInstance);
