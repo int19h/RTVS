@@ -113,13 +113,17 @@ namespace Microsoft.R.Host.Broker.Startup {
                 throw new InvalidOperationException();
             }
 
-            string pipeHandle = _startupOptions.WriteServerUrlsToPipe;
-            if (pipeHandle != null) {
-                PipeStream pipe;
+            string pipeName = _startupOptions.WriteServerUrlsToPipe;
+            if (pipeName != null) {
+                NamedPipeClientStream pipe;
                 try {
-                    pipe = new AnonymousPipeClientStream(PipeDirection.Out, pipeHandle);
+                    pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out);
+                    pipe.Connect(10000);
                 } catch (IOException ex) {
-                    _logger.LogCritical(0, ex, $"Requested to write server.urls to pipe '{pipeHandle}', but it is not a valid pipe handle.");
+                    _logger.LogCritical(0, ex, $"Requested to write server.urls to pipe '{pipeName}', but it is not a valid pipe handle.");
+                    throw;
+                } catch (TimeoutException ex) {
+                    _logger.LogCritical(0, ex, $"Requested to write server.urls to pipe '{pipeName}', but timed out while trying to connect to pipe.");
                     throw;
                 }
 
@@ -128,9 +132,10 @@ namespace Microsoft.R.Host.Broker.Startup {
                     using (pipe) {
                         var serverUriData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(serverAddresses.Addresses));
                         pipe.Write(serverUriData, 0, serverUriData.Length);
+                        pipe.Flush();
                     }
 
-                    _logger.LogInformation($"Wrote server.urls to pipe '{pipeHandle}'.");
+                    _logger.LogInformation($"Wrote server.urls to pipe '{pipeName}'.");
                 });
             }
 

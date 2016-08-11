@@ -108,14 +108,15 @@ namespace Microsoft.R.Host.Client.Host {
 
             Process process = null;
             try {
-                using (var serverUriPipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable)) {
+                string pipeName = Guid.NewGuid().ToString();
+                using (var serverUriPipe = new NamedPipeServerStream(pipeName, PipeDirection.In)) {
                     var psi = new ProcessStartInfo {
                         FileName = rhostBrokerExe,
                         UseShellExecute = false,
                         Arguments =
                             $" --startup:name \"{_name}\"" +
                             $" --startup:autoSelectPort true" +
-                            $" --startup:writeServerUrlsToPipe {serverUriPipe.GetClientHandleAsString()}" +
+                            $" --startup:writeServerUrlsToPipe {pipeName}" +
                             $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
                             $" --security:secret \"{_credentials.Password}\"" +
                             $" --R:autoDetect false" +
@@ -135,6 +136,8 @@ namespace Microsoft.R.Host.Client.Host {
                         _isConnected = false;
                     };
 
+                    await serverUriPipe.WaitForConnectionAsync(cts.Token);
+
                     var serverUriData = new MemoryStream();
                     try {
                         // Pipes are special in that a zero-length read is not an indicator of end-of-stream.
@@ -143,17 +146,28 @@ namespace Microsoft.R.Host.Client.Host {
                         // when the other side has finished writing and closed the pipe.
                         var buffer = new byte[0x1000];
                         do {
-                            int count = await serverUriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                            // PipeStream.ReadAsync is not cancelable, despite having an overload that takes a
+                            // cancellation token, so timeout has to be implemented manually.
+                            var readTask = serverUriPipe.ReadAsync(buffer, 0, buffer.Length);
+                            var timeoutTask = Task.Delay(Timeout.Infinite, cts.Token);
+                            await Task.WhenAny(readTask, timeoutTask).Unwrap();
+                            int count = await readTask;
+
                             serverUriData.Write(buffer, 0, count);
-                            serverUriPipe.DisposeLocalCopyOfClientHandle();
                         } while (serverUriPipe.IsConnected);
                     } catch (OperationCanceledException) {
                         throw new RHostTimeoutException("Timed out while waiting for broker process to report its endpoint URI");
                     }
 
-                    var serverUri = JsonConvert.DeserializeObject<Uri[]>(Encoding.UTF8.GetString(serverUriData.ToArray()));
-                    if (serverUri.Length != 1) {
-                        throw new RHostDisconnectedException("Unexpected number of endpoint URIs received from broker.");
+                    string serverUriStr = Encoding.UTF8.GetString(serverUriData.ToArray());
+                    Uri[] serverUri;
+                    try {
+                        serverUri = JsonConvert.DeserializeObject<Uri[]>(serverUriStr);
+                    } catch (JsonSerializationException ex) {
+                        throw new RHostDisconnectedException($"Invalid JSON for endpoint URIs received from broker ({ex.Message}): {serverUriStr}");
+                    }
+                    if (serverUri?.Length != 1) {
+                        throw new RHostDisconnectedException($"Unexpected number of endpoint URIs received from broker: {serverUriStr}");
                     }
 
                     Broker.BaseAddress = serverUri[0];
