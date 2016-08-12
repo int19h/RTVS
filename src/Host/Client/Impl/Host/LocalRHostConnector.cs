@@ -114,8 +114,8 @@ namespace Microsoft.R.Host.Client.Host {
                         FileName = rhostBrokerExe,
                         UseShellExecute = false,
                         Arguments =
+                            $" --server.urls http://127.0.0.1:0" + // :0 means first available ephemeral port
                             $" --startup:name \"{_name}\"" +
-                            $" --startup:autoSelectPort true" +
                             $" --startup:writeServerUrlsToPipe {pipeName}" +
                             $" --lifetime:parentProcessId {Process.GetCurrentProcess().Id}" +
                             $" --security:secret \"{_credentials.Password}\"" +

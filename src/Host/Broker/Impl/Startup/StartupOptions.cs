@@ -7,8 +7,6 @@ namespace Microsoft.R.Host.Broker.Startup {
     public class StartupOptions {
         public string Name { get; set; }
 
-        public bool AutoSelectPort { get; set; }
-
         /// <seealso cref="AnonymousPipeServerStream.GetClientHandleAsString"/> 
         public string WriteServerUrlsToPipe { get; set; }
     }

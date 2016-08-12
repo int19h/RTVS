@@ -56,70 +56,22 @@ namespace Microsoft.R.Host.Broker.Startup {
                 _logger.LogInformation($"Broker name '{_startupOptions.Name}' assigned");
             }
 
-            if (!_startupOptions.AutoSelectPort) {
-                try {
-                    CreateWebHost().Run();
-                } catch (Exception ex) {
-                    _logger.LogCritical(0, ex, "ERROR");
-                }
-            } else {
-                // Randomly shuffled sequence of port numbers from the ephemeral port range (per RFC 6335 8.1.2).
-                const int ephemeralRangeStart = 49152;
-                var rnd = new Random();
-                var ports = from port in Enumerable.Range(ephemeralRangeStart, 0x10000 - ephemeralRangeStart)
-                            let pos = rnd.NextDouble()
-                            orderby pos
-                            select port;
-
-                bool foundPort = ports.Any(port => {
-                    var webHost = CreateWebHost(port);
-                    try {
-                        _logger.LogInformation($"Port auto-selection: starting web host.");
-                        webHost.Run(CancellationToken);
-                        return true;
-                    } catch (WebListenerException) when (_startupOptions.AutoSelectPort) {
-                        _logger.LogInformation($"Port auto-selection: port {port} is already in use, trying next port.");
-                        return false;
-                    } catch (Exception ex) {
-                        _logger.LogCritical(0, ex, "ERROR");
-                        return false;
-                    }
-                });
-
-                if (!foundPort) {
-                    _logger.LogCritical($"Port auto-selection requested, but no ephemeral ports are available.");
-                }
-            }
+            CreateWebHost().Run();
         }
 
-        public static IWebHost CreateWebHost(int? autoSelectedPort = null) {
+        public static IWebHost CreateWebHost() {
             var webHostBuilder = new WebHostBuilder()
                 .UseLoggerFactory(_loggerFactory)
                 .UseConfiguration(Configuration)
-                //.UseWebListener(options => {
-                //    options.Listener.AuthenticationManager.AuthenticationSchemes = AuthenticationSchemes.NTLM | AuthenticationSchemes.AllowAnonymous;
-                //    options.Listener.TimeoutManager.MinSendBytesPerSecond = uint.MaxValue;
-                //    options.Listener.BufferResponses = false;
-                //})
                 .UseKestrel(options => {
                     //options.UseConnectionLogging();
                 })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<Startup>();
 
-            if (autoSelectedPort != null) {
-                var uri = new UriBuilder("http://127.0.0.1") { Port = autoSelectedPort.Value }.Uri;
-                _logger.LogInformation($"Port auto-selection requested, trying {uri}.");
-                webHostBuilder.UseUrls(uri.ToString());
-            }
-
             var webHost = webHostBuilder.Build();
 
             var serverAddresses = webHost.ServerFeatures.Get<IServerAddressesFeature>();
-            if (autoSelectedPort != null && serverAddresses.Addresses.Count != 1) {
-                _logger.LogCritical("Explicit server.urls is not supported in conjunction with port auto-selection.");
-                throw new InvalidOperationException();
-            }
 
             string pipeName = _startupOptions.WriteServerUrlsToPipe;
             if (pipeName != null) {
