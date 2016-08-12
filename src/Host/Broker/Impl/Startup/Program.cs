@@ -57,7 +57,11 @@ namespace Microsoft.R.Host.Broker.Startup {
             }
 
             if (!_startupOptions.AutoSelectPort) {
-                CreateWebHost().Run();
+                try {
+                    CreateWebHost().Run();
+                } catch (Exception ex) {
+                    _logger.LogCritical(0, ex, "ERROR");
+                }
             } else {
                 // Randomly shuffled sequence of port numbers from the ephemeral port range (per RFC 6335 8.1.2).
                 const int ephemeralRangeStart = 49152;
@@ -70,10 +74,14 @@ namespace Microsoft.R.Host.Broker.Startup {
                 bool foundPort = ports.Any(port => {
                     var webHost = CreateWebHost(port);
                     try {
+                        _logger.LogInformation($"Port auto-selection: starting web host.");
                         webHost.Run(CancellationToken);
                         return true;
                     } catch (WebListenerException) when (_startupOptions.AutoSelectPort) {
                         _logger.LogInformation($"Port auto-selection: port {port} is already in use, trying next port.");
+                        return false;
+                    } catch (Exception ex) {
+                        _logger.LogCritical(0, ex, "ERROR");
                         return false;
                     }
                 });
