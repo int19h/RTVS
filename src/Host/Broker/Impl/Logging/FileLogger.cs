@@ -40,8 +40,13 @@ namespace Microsoft.R.Host.Broker.Logging {
 
             string message = formatter(state, exception);
             lock (writer) {
-                writer.WriteLine("[{0}]", _category);
+                writer.WriteLine("[{0:u}] <{1}>", DateTime.Now, _category);
                 writer.WriteLine(message);
+
+                if (exception != null) {
+                    writer.WriteLine("Exception: " + exception);
+                }
+
                 writer.WriteLine();
                 writer.Flush();
             }

@@ -146,13 +146,7 @@ namespace Microsoft.R.Host.Client.Host {
                         // when the other side has finished writing and closed the pipe.
                         var buffer = new byte[0x1000];
                         do {
-                            // PipeStream.ReadAsync is not cancelable, despite having an overload that takes a
-                            // cancellation token, so timeout has to be implemented manually.
-                            var readTask = serverUriPipe.ReadAsync(buffer, 0, buffer.Length);
-                            var timeoutTask = Task.Delay(Timeout.Infinite, cts.Token);
-                            await Task.WhenAny(readTask, timeoutTask).Unwrap();
-                            int count = await readTask;
-
+                            int count = await serverUriPipe.ReadAsync(buffer, 0, buffer.Length, cts.Token);
                             serverUriData.Write(buffer, 0, count);
                         } while (serverUriPipe.IsConnected);
                     } catch (OperationCanceledException) {

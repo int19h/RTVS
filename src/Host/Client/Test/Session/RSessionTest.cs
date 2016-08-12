@@ -94,7 +94,7 @@ namespace Microsoft.R.Host.Client.Test.Session {
         public async Task StartStopMultipleSessions() {
             Func<int, Task<RSession>> start = async i => {
                 var session = new RSession(i, _brokerConnector, () => { });
-                await session.StartHostAsync(new RHostStartupInfo { Name = _testMethod.Name }, null, 50000);
+                await session.StartHostAsync(new RHostStartupInfo { Name = _testMethod.Name + i }, null, 50000);
                 return session;
             };
 

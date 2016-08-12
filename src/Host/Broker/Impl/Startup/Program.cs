@@ -128,15 +128,18 @@ namespace Microsoft.R.Host.Broker.Startup {
                 }
 
                 var applicationLifetime = webHost.Services.GetService<IApplicationLifetime>();
-                applicationLifetime.ApplicationStarted.Register(() => {
+                applicationLifetime.ApplicationStarted.Register(() => Task.Run(() => {
                     using (pipe) {
-                        var serverUriData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(serverAddresses.Addresses));
+                        string serverUriStr = JsonConvert.SerializeObject(serverAddresses.Addresses);
+                        _logger.LogInformation($"Writing server.urls to pipe '{pipeName}':{Environment.NewLine}{serverUriStr}");
+
+                        var serverUriData = Encoding.UTF8.GetBytes(serverUriStr);
                         pipe.Write(serverUriData, 0, serverUriData.Length);
                         pipe.Flush();
                     }
 
                     _logger.LogInformation($"Wrote server.urls to pipe '{pipeName}'.");
-                });
+                }));
             }
 
             return webHost;
@@ -149,7 +152,7 @@ namespace Microsoft.R.Host.Broker.Startup {
                 // Give cooperative cancellation 10 seconds to shut the process down gracefully,
                 // but if it didn't work, just terminate it.
                 await Task.Delay(10000);
-                Environment.Exit(1);
+                Environment.FailFast("Timed out waiting for graceful shutdown.");
             });
         }
     }

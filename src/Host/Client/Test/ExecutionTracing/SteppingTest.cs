@@ -46,7 +46,7 @@ namespace Microsoft.R.ExecutionTracing.Test {
             _brokerConnector.Dispose();
         }
 
-        [Test]
+        [Test(Skip = "https://github.com/Microsoft/RTVS/issues/2009")]
         public async Task BreakContinue() {
             const string code =
 @"x <- 0
