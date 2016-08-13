@@ -101,6 +101,11 @@ namespace Microsoft.R.Host.Broker {
         public const int LOGON32_LOGON_INTERACTIVE = 2;
         public const int LOGON32_LOGON_NETWORK = 3;
 
+        public const int CRED_MAX_USERNAME_LENGTH = 513;
+        public const int CRED_MAX_CREDENTIAL_BLOB_SIZE = 512;
+        public const int CREDUI_MAX_USERNAME_LENGTH = CRED_MAX_USERNAME_LENGTH;
+        public const int CREDUI_MAX_PASSWORD_LENGTH = (CRED_MAX_CREDENTIAL_BLOB_SIZE / 2);
+
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
         public static extern int GetShortPathName(string lpszLongPath, StringBuilder lpszShortPath, int cchBuffer);
 
@@ -193,5 +198,13 @@ namespace Microsoft.R.Host.Broker {
             int dwLogonType,
             int dwLogonProvider,
             out IntPtr phToken);
+
+        [DllImport("credui.dll", CharSet = CharSet.Unicode)]
+        public  static extern int CredUIParseUserName(
+                string userName,
+                StringBuilder user,
+                int userMaxChars,
+                StringBuilder domain,
+                int domainMaxChars);
     }
 }

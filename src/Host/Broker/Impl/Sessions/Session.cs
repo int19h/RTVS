@@ -62,11 +62,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         public void StartHost(ILogger outputLogger, ILogger messageLogger) {
-            //var winUser = User as WindowsIdentity;
-            //if (winUser != null || winUser.User != WindowsIdentity.GetCurrent().User) {
-            //    throw new UnauthorizedAccessException();
-            //}
-
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
 
@@ -98,7 +93,11 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 _pipe = null;
             };
 
-            _process.Start();
+            var winUser = User as WindowsIdentity;
+            using (winUser != null ? winUser.Impersonate() : null) {
+                _process.Start();
+            }
+
             _process.BeginErrorReadLine();
 
             _pipe = new MessagePipe(messageLogger);

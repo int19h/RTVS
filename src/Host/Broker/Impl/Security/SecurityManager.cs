@@ -4,6 +4,7 @@
 using System;
 using System.Security.Claims;
 using System.Security.Principal;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -49,8 +50,15 @@ namespace Microsoft.R.Host.Broker.Security {
         }
 
         private IIdentity SignInUsingLogon(BasicSignInContext context) {
+            var user = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH + 1);
+            var domain = new StringBuilder(NativeMethods.CREDUI_MAX_PASSWORD_LENGTH + 1);
+
+            if (NativeMethods.CredUIParseUserName(context.Username, user, user.Capacity, domain, domain.Capacity) != 0) {
+                return null;
+            }
+
             IntPtr token;
-            if (NativeMethods.LogonUser(context.Username, null, context.Password, NativeMethods.LOGON32_LOGON_NETWORK, NativeMethods.LOGON32_PROVIDER_DEFAULT, out token)) {
+            if (NativeMethods.LogonUser(user.ToString(), domain.ToString(), context.Password, NativeMethods.LOGON32_LOGON_NETWORK, NativeMethods.LOGON32_PROVIDER_DEFAULT, out token)) {
                 return new WindowsIdentity(token);
             } else {
                 return null;
