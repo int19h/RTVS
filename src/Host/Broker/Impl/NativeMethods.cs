@@ -97,6 +97,10 @@ namespace Microsoft.R.Host.Broker {
             TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
             TOKEN_ADJUST_SESSIONID;
 
+        public const int LOGON32_PROVIDER_DEFAULT = 0;
+        public const int LOGON32_LOGON_INTERACTIVE = 2;
+        public const int LOGON32_LOGON_NETWORK = 3;
+
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
         public static extern int GetShortPathName(string lpszLongPath, StringBuilder lpszShortPath, int cchBuffer);
 
@@ -180,5 +184,14 @@ namespace Microsoft.R.Host.Broker {
             string lpCurrentDirectory,
             [In] ref STARTUPINFO lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool LogonUser(
+            string lpszUsername,
+            string lpszDomain,
+            string lpszPassword,
+            int dwLogonType,
+            int dwLogonProvider,
+            out IntPtr phToken);
     }
 }

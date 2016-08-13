@@ -33,6 +33,8 @@ namespace Microsoft.R.Host.Broker.Startup {
 
             services.AddSingleton<LifetimeManager>();
 
+            services.AddSingleton<SecurityManager>();
+
             services.AddSingleton<InterpreterManager>();
 
             services.AddSingleton<SessionManager>();
@@ -51,7 +53,8 @@ namespace Microsoft.R.Host.Broker.Startup {
             IApplicationBuilder app,
             IHostingEnvironment env,
             LifetimeManager lifetimeManager,
-            InterpreterManager interpreterManager
+            InterpreterManager interpreterManager,
+            SecurityManager securityManager
         ) {
             lifetimeManager.Initialize();
             interpreterManager.Initialize();
@@ -63,7 +66,7 @@ namespace Microsoft.R.Host.Broker.Startup {
             });
 
             app.UseBasicAuthentication(options => {
-                options.Events = new BasicEvents { OnSignIn = SignIn };
+                options.Events = new BasicEvents { OnSignIn = securityManager.SignInAsync };
             });
 
             app.Use((context, next) => {
@@ -75,25 +78,6 @@ namespace Microsoft.R.Host.Broker.Startup {
             });
 
             app.UseMvc();
-        }
-
-        private Task SignIn(BasicSignInContext context) {
-            var securityOptions = context.HttpContext.RequestServices.GetRequiredService<IOptions<SecurityOptions>>().Value;
-
-            if (securityOptions.Secret != null && securityOptions.Secret == context.Password) {
-                var claims = new[] {
-                                new Claim(ClaimTypes.Name, context.Username),
-                                new Claim(ClaimTypes.Role, securityOptions.AllowedGroup)
-                            };
-
-                var identity = new ClaimsIdentity(claims, context.Options.AuthenticationScheme);
-                var principal = new ClaimsPrincipal(identity);
-                context.Ticket = new AuthenticationTicket(principal, new AuthenticationProperties(), context.Options.AuthenticationScheme);
-
-                context.HandleResponse();
-            }
-
-            return Task.CompletedTask;
         }
     }
 }
