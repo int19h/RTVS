@@ -39,10 +39,11 @@ namespace Microsoft.R.Host.Broker.Startup {
 
             services.AddSingleton<SessionManager>();
 
-            services.AddSingleton<IAuthorizationHandler, RUserAuthorizationHandler>();
+            //services.AddSingleton<IAuthorizationHandler, RUserAuthorizationHandler>();
 
-            services.AddAuthorization(options => options.AddPolicy(Policies.RUser, policy =>
-                policy.AddRequirements(new RUserAuthorizationRequirement())));
+            services.AddAuthorization(options => options.AddPolicy(
+                Policies.RUser,
+                policy => policy.RequireClaim(Claims.RUser)));
 
             services.AddRouting();
 

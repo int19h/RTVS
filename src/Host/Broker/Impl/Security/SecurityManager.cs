@@ -26,9 +26,8 @@ namespace Microsoft.R.Host.Broker.Security {
         }
 
         public Task SignInAsync(BasicSignInContext context) {
-            IIdentity identity = (_options.Secret != null) ? SignInUsingSecret(context) : SignInUsingLogon(context);
-            if (identity != null) {
-                var principal = new ClaimsPrincipal(identity);
+            ClaimsPrincipal principal = (_options.Secret != null) ? SignInUsingSecret(context) : SignInUsingLogon(context);
+            if (principal != null) {
                 context.Ticket = new AuthenticationTicket(principal, new AuthenticationProperties(), context.Options.AuthenticationScheme);
             }
 
@@ -36,20 +35,21 @@ namespace Microsoft.R.Host.Broker.Security {
             return Task.CompletedTask;
         }
 
-        private IIdentity SignInUsingSecret(BasicSignInContext context) {
+        private ClaimsPrincipal SignInUsingSecret(BasicSignInContext context) {
             if (_options.Secret != context.Password) {
                 return null;
             }
 
             var claims = new[] {
                 new Claim(ClaimTypes.Name, context.Username),
-                new Claim(ClaimTypes.Role, _options.AllowedGroup)
+                new Claim(Claims.RUser, "")
             };
 
-            return new ClaimsIdentity(claims, context.Options.AuthenticationScheme);
+            var identity = new ClaimsIdentity(claims, context.Options.AuthenticationScheme);
+            return new ClaimsPrincipal(identity);
         }
 
-        private IIdentity SignInUsingLogon(BasicSignInContext context) {
+        private ClaimsPrincipal SignInUsingLogon(BasicSignInContext context) {
             var user = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH + 1);
             var domain = new StringBuilder(NativeMethods.CREDUI_MAX_PASSWORD_LENGTH + 1);
 
@@ -58,11 +58,24 @@ namespace Microsoft.R.Host.Broker.Security {
             }
 
             IntPtr token;
-            if (NativeMethods.LogonUser(user.ToString(), domain.ToString(), context.Password, NativeMethods.LOGON32_LOGON_NETWORK, NativeMethods.LOGON32_PROVIDER_DEFAULT, out token)) {
-                return new WindowsIdentity(token);
-            } else {
+            if (!NativeMethods.LogonUser(user.ToString(), domain.ToString(), context.Password, NativeMethods.LOGON32_LOGON_NETWORK, NativeMethods.LOGON32_PROVIDER_DEFAULT, out token)) {
                 return null;
             }
+
+            var winIdentity = new WindowsIdentity(token);
+            var principal = new WindowsPrincipal(winIdentity);
+
+            if (principal.IsInRole(_options.AllowedGroup)) {
+                var claims = new[] {
+                    new Claim(ClaimTypes.Name, context.Username),
+                    new Claim(Claims.RUser, "")
+                };
+
+                var claimsIdentity = new ClaimsIdentity(claims, context.Options.AuthenticationScheme);
+                principal.AddIdentities(new[] { claimsIdentity });
+            }
+
+            return principal;
         }
     }
 }

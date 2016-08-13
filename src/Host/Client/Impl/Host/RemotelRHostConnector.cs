@@ -18,7 +18,7 @@ namespace Microsoft.R.Host.Client.Host {
 
         protected override HttpClientHandler GetHttpClientHandler() {
             return new HttpClientHandler {
-                UseDefaultCredentials = true
+                Credentials = new UICredentials()
             };
         }
 

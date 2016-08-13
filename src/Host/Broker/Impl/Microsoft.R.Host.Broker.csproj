@@ -89,6 +89,7 @@
     <Compile Include="NativeMethods.cs" />
     <Compile Include="Pipes\ProcessHelpers.cs" />
     <Compile Include="Pipes\WebSocketPipeAction.cs" />
+    <Compile Include="Security\Claims.cs" />
     <Compile Include="Security\SecurityManager.cs" />
     <Compile Include="Security\Policies.cs" />
     <Compile Include="Startup\StartupOptions.cs" />
@@ -102,7 +103,6 @@
     <Compile Include="Pipes\MessagePipe.cs" />
     <Compile Include="Interpreters\InterpreterInfo.cs" />
     <Compile Include="Interpreters\InterpreterOptions.cs" />
-    <Compile Include="Security\RUserAuthorizationHandler.cs" />
     <Compile Include="Security\RUserAuthorizationRequirement.cs" />
     <Compile Include="Security\SecurityOptions.cs" />
     <Compile Include="Interpreters\ROptions.cs" />
