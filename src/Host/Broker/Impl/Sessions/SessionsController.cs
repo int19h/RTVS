@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.R.Host.Broker.Interpreters;
@@ -28,8 +29,17 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         [HttpPut("{id}")]
         public SessionInfo Put(string id, [FromBody] SessionCreateRequest request) {
+            SecureString securePassword = null;
+            string password = User.FindFirst(Claims.Password)?.Value;
+            if (password != null) {
+                securePassword = new SecureString();
+                foreach (var ch in password) {
+                    securePassword.AppendChar(ch);
+                }
+            }
+
             var interp = _interpManager.Interpreters.First(ip => ip.Info.Id ==  request.InterpreterId);
-            var session = _sessionManager.CreateSession(id, interp, User.Identity, Url);
+            var session = _sessionManager.CreateSession(id, interp, User.Identity, securePassword);
             return session.Info;
         }
 

@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Diagnostics;
 using System.Linq;
+using System.Security;
+using System.Security.Claims;
 using System.Security.Principal;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -44,7 +46,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        public Session CreateSession(string id, Interpreter interpreter, IIdentity user, IUrlHelper urlHelper) {
+        public Session CreateSession(string id, Interpreter interpreter, IIdentity user, SecureString password) {
             Session session;
 
             lock (_sessions) {
@@ -65,6 +67,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
 
             session.StartHost(
+                password,
                 _loggingOptions.LogHostOutput ? _hostOutputLogger : null,
                 _loggingOptions.LogPackets ? _messageLogger : null);
             return session;

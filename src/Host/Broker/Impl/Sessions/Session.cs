@@ -5,14 +5,16 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Security;
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Pipes;
+using Microsoft.R.Host.Broker.Security;
 using Microsoft.R.Host.Broker.Startup;
 
 namespace Microsoft.R.Host.Broker.Sessions {
@@ -61,7 +63,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             User = user;
         }
 
-        public void StartHost(ILogger outputLogger, ILogger messageLogger) {
+        public void StartHost(SecureString password, ILogger outputLogger, ILogger messageLogger) {
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
 
@@ -79,9 +81,15 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["R_HOME"] = shortHome.ToString();
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
-            _process = new Process();
-            _process.StartInfo = psi;
-            _process.EnableRaisingEvents = true;
+            if (password != null) {
+                psi.UserName = User.Name;
+                psi.Password = password;
+            }
+
+            _process = new Process {
+                StartInfo = psi,
+                EnableRaisingEvents = true,
+            };
 
             _process.ErrorDataReceived += (sender, e) => {
                 if (outputLogger != null) {
@@ -93,11 +101,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 _pipe = null;
             };
 
-            var winUser = User as WindowsIdentity;
-            using (winUser != null ? winUser.Impersonate() : null) {
-                _process.Start();
-            }
-
+            _process.Start();
             _process.BeginErrorReadLine();
 
             _pipe = new MessagePipe(messageLogger);

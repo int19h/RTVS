@@ -18,8 +18,6 @@ namespace Microsoft.R.Host.Broker.Security {
         private readonly SecurityOptions _options;
         private readonly ILogger _logger;
 
-        private CancellationTokenSource _cts;
-
         public SecurityManager(IOptions<SecurityOptions> options, ILogger<SecurityManager> logger) {
             _options = options.Value;
             _logger = logger;
@@ -67,8 +65,10 @@ namespace Microsoft.R.Host.Broker.Security {
 
             if (principal.IsInRole(_options.AllowedGroup)) {
                 var claims = new[] {
-                    new Claim(ClaimTypes.Name, context.Username),
-                    new Claim(Claims.RUser, "")
+                    //new Claim(ClaimTypes.Name, context.Username),
+                    new Claim(Claims.RUser, ""),
+                    // TODO: figure out how to avoid keeping raw credentials around. 
+                    new Claim(Claims.Password, context.Password),
                 };
 
                 var claimsIdentity = new ClaimsIdentity(claims, context.Options.AuthenticationScheme);
