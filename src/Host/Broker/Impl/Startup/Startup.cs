@@ -2,16 +2,9 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http.Authentication;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Lifetime;
 using Microsoft.R.Host.Broker.Logging;

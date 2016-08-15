@@ -13,7 +13,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Common.Core;
-using Microsoft.Common.Core.Logging;
 using Newtonsoft.Json;
 
 namespace Microsoft.R.Host.Client.Host {

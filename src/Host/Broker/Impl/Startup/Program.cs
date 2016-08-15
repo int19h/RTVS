@@ -2,23 +2,18 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.IO.Pipes;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Net.Http.Server;
-using Microsoft.R.Host.Broker.Lifetime;
-using Microsoft.R.Host.Broker.Logging;
-using Microsoft.Extensions.DependencyInjection;
-using System.IO.Pipes;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.R.Host.Broker.Logging;
 using Newtonsoft.Json;
-using System.Text;
 
 namespace Microsoft.R.Host.Broker.Startup {
     public class Program {

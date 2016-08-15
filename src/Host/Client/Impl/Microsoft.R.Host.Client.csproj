@@ -55,7 +55,7 @@
     <Compile Include="DataInspection\RPromiseInfo.cs" />
     <Compile Include="DataInspection\RSessionExtensions.cs" />
     <Compile Include="Host\UICredentials.cs" />
-    <Compile Include="Host\RemotelRHostConnector.cs" />
+    <Compile Include="Host\RemoteRHostConnector.cs" />
     <Compile Include="Host\RHostConnector.cs" />
     <Compile Include="Host\RHost.GetBlobRequest.cs" />
     <Compile Include="Host\RHost.CreateBlobRequest.cs" />

@@ -11,6 +11,7 @@ namespace Microsoft.R.Host.Client.Host {
             var userName = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH + 1);
             var password = new StringBuilder(NativeMethods.CREDUI_MAX_PASSWORD_LENGTH + 1);
 
+            // TODO: figure out how to actually make login info persist. CREDUI_FLAGS_EXPECT_CONFIRMATION and CredUIConfirmCredentials?
             bool save = false;
             int err = NativeMethods.CredUIPromptForCredentials(
                 IntPtr.Zero, uri.Host.ToString(), IntPtr.Zero, 0, userName, userName.Capacity, password, password.Capacity, ref save,

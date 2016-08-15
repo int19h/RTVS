@@ -6,7 +6,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Security;
-using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +13,6 @@ using Microsoft.Common.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Pipes;
-using Microsoft.R.Host.Broker.Security;
 using Microsoft.R.Host.Broker.Startup;
 
 namespace Microsoft.R.Host.Broker.Sessions {
