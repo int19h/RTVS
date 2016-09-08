@@ -3,10 +3,12 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.R.Host.Broker.Errors;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Pipes;
 using Microsoft.R.Host.Broker.Security;
@@ -38,9 +40,12 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 }
             }
 
-            var interp = string.IsNullOrEmpty(request.InterpreterId)
-                ? _interpManager.Interpreters.First()
-                : _interpManager.Interpreters.First(ip => ip.Id == request.InterpreterId);
+            Interpreter interp;
+            try {
+                interp = _interpManager.GetInterpreter(request.InterpreterId);
+            } catch (InterpreterNotFoundException ex) {
+                throw ex.ToRestException(HttpStatusCode.BadRequest, SessionCreateError.InterpreterNotFound);
+            }
 
             var session = _sessionManager.CreateSession(User.Identity, id, interp, securePassword, request.CommandLineArguments);
             return Task.FromResult(session.Info);

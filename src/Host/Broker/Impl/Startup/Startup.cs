@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Common.Core.IO;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.R.Host.Broker.Errors;
 using Microsoft.R.Host.Broker.Interpreters;
 using Microsoft.R.Host.Broker.Lifetime;
 using Microsoft.R.Host.Broker.Logging;
@@ -53,6 +54,8 @@ namespace Microsoft.R.Host.Broker.Startup {
         ) {
             lifetimeManager.Initialize();
             interpreterManager.Initialize();
+
+            app.UseMiddleware<RestExceptionMiddleware>();
 
             app.UseWebSockets(new WebSocketOptions {
                 ReplaceFeature = true,

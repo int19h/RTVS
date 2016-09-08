@@ -9,6 +9,7 @@ using System.Text;
 using Microsoft.Common.Core.IO;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.R.Host.Protocol;
 using Microsoft.R.Interpreters;
 
 namespace Microsoft.R.Host.Broker.Interpreters {
@@ -67,6 +68,24 @@ namespace Microsoft.R.Host.Broker.Interpreters {
                 }
 
                 _logger.LogError($"Failed to retrieve R installation data for interpreter \"{id}\" at \"{options.BasePath}\"");
+            }
+        }
+
+        /// <summary>
+        /// Returns an interpreter for a given ID. If ID is null or an empty string, returns the first available interpreter.
+        /// </summary>
+        /// <exception cref="InterpreterNotFoundException">
+        /// Interpreter with the given ID was not found. If ID was null or an empty string, this indicates that no interpreters are available.
+        /// </exception>
+        public Interpreter GetInterpreter(string id = null) {
+            var result = string.IsNullOrEmpty(id)
+                ? Interpreters.FirstOrDefault()
+                : Interpreters.FirstOrDefault(interp => interp.Id == id);
+
+            if (result != null) {
+                return result;
+            } else {
+                throw new InterpreterNotFoundException(id);
             }
         }
     }
