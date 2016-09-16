@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -13,12 +14,9 @@ using Microsoft.Common.Core.Diagnostics;
 using Microsoft.Common.Core.Logging;
 using Microsoft.Common.Core.Shell;
 using Microsoft.R.Host.Client.Host;
-using Newtonsoft.Json;
+using Microsoft.R.Host.Protocol;
 using Newtonsoft.Json.Linq;
 using static System.FormattableString;
-using System.Collections.Generic;
-using System.Runtime;
-using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Client {
     public sealed partial class RHost : IDisposable, IRExpressionEvaluator, IRBlobService {
@@ -525,7 +523,8 @@ namespace Microsoft.R.Host.Client {
             try {
                 _runTask = RunWorker(ct);
                 await _runTask;
-            } catch (MessageTransportDisconnectedException) {
+            } catch (MessageTransportDisconnectedException ex) {
+                throw new RHostDisconnectedException(ex.Message, ex);
             } catch (OperationCanceledException) when (ct.IsCancellationRequested) {
                 // Expected cancellation, do not propagate, just exit process
             } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {
