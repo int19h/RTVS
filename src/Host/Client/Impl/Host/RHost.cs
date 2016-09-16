@@ -525,6 +525,7 @@ namespace Microsoft.R.Host.Client {
             try {
                 _runTask = RunWorker(ct);
                 await _runTask;
+            } catch (MessageTransportDisconnectedException) {
             } catch (OperationCanceledException) when (ct.IsCancellationRequested) {
                 // Expected cancellation, do not propagate, just exit process
             } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {

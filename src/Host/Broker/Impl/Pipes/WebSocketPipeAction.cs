@@ -28,15 +28,17 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 return;
             }
 
-            var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
+            using (var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host")) {
+                var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                using (var pipe = _session.ConnectClient()) {
+                    Task wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
+                    Task pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
+                    await Task.WhenAny(wsToPipe, pipeToWs).Unwrap();
+                }
 
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
-            using (var pipe = _session.ConnectClient()) {
-                Task wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
-                Task pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
-                await Task.WhenAny(wsToPipe, pipeToWs).Unwrap();
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
+                cts.Cancel();
             }
-            cts.Cancel();
         }
 
         private static async Task WebSocketToPipeWorker(WebSocket socket, IMessagePipeEnd pipe, CancellationToken cancellationToken) {
@@ -65,7 +67,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
             while (true) {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var message = await pipe.ReadAsync(cancellationToken);
+                byte[] message;
+                try {
+                    message = await pipe.ReadAsync(cancellationToken);
+                } catch (HostDisconnectedException) {
+                    break;
+                }
+
                 await socket.SendAsync(new ArraySegment<byte>(message, 0, message.Length), WebSocketMessageType.Binary, true, cancellationToken);
             }
         }

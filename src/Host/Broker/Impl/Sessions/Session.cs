@@ -23,7 +23,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
         private static readonly byte[] _endMessage;
         private readonly ILogger _sessionLogger;
         private Process _process;
-        private volatile MessagePipe _pipe;
+        private MessagePipe _pipe;
+        private volatile IMessagePipeEnd _hostEnd;
 
         public SessionManager Manager { get; }
 
@@ -76,16 +77,22 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger) {
+        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger, ILogger messageLogger) {
             Manager = manager;
             Interpreter = interpreter;
             User = user;
             Id = id;
             CommandLineArguments = commandLineArguments;
             _sessionLogger = sessionLogger;
+
+            _pipe = new MessagePipe(messageLogger);
         }
 
-        public void StartHost(SecureString password, string profilePath, ILogger outputLogger, ILogger messageLogger) {
+        public void StartHost(SecureString password, string profilePath, ILogger outputLogger) {
+            if (_hostEnd != null) {
+                throw new InvalidOperationException("Host process is already running");
+            }
+
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
             string arguments = $"--rhost-name \"{Id}\" {CommandLineArguments}";
@@ -159,7 +166,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
             };
 
             _process.Exited += delegate {
-                _pipe = null;
+                _hostEnd?.Dispose();
+                _hostEnd = null;
                 State = SessionState.Dormant;
             };
 
@@ -169,8 +177,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             _process.BeginErrorReadLine();
 
-            _pipe = new MessagePipe(messageLogger);
             var hostEnd = _pipe.ConnectHost(_process.Id);
+            _hostEnd = hostEnd;
 
             ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
             HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
@@ -186,7 +194,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             _process = null;
         }
 
-        public IOwnedMessagePipeEnd ConnectClient() {
+        public IMessagePipeEnd ConnectClient() {
             if (_pipe == null) {
                 throw new InvalidOperationException(string.Format(Resources.Error_RHostFailedToStart, Id));
             }
