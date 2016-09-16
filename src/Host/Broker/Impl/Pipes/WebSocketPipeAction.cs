@@ -28,12 +28,24 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 return;
             }
 
-            var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
+            using (var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host")) {
+                Task wsToPipe, pipeToWs, completed;
 
-            using (var pipe = _session.ConnectClient()) {
-                Task wsToPipe = WebSocketToPipeWorker(socket, pipe, context.RequestAborted);
-                Task pipeToWs = PipeToWebSocketWorker(socket, pipe, context.RequestAborted);
-                await Task.WhenAll(wsToPipe, pipeToWs);
+                var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                using (var pipe = _session.ConnectClient()) {
+                    wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
+                    pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
+                    completed = await Task.WhenAny(wsToPipe, pipeToWs);
+                }
+
+                if (completed == pipeToWs) {
+                    // If the pipe end is exhausted, tell the client that there's no more messages to follow,
+                    // so that it can gracefully disconnect from its end. 
+                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", context.RequestAborted);
+                } else {
+                    // If the client disconnected, then just cancel any outstanding reads from the pipe.
+                    cts.Cancel();
+                }
             }
         }
 
@@ -63,7 +75,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
             while (true) {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var message = await pipe.ReadAsync(cancellationToken);
+                byte[] message;
+                try {
+                    message = await pipe.ReadAsync(cancellationToken);
+                } catch (HostDisconnectedException) {
+                    break;
+                }
+
                 await socket.SendAsync(new ArraySegment<byte>(message, 0, message.Length), WebSocketMessageType.Binary, true, cancellationToken);
             }
         }

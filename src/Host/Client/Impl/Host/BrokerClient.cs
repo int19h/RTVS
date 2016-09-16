@@ -18,7 +18,7 @@ using Microsoft.R.Host.Protocol;
 using Newtonsoft.Json;
 
 namespace Microsoft.R.Host.Client.Host {
-    internal abstract class BrokerClient : IBrokerClient {
+    internal abstract class BrokerClient : IBrokerClient, ICredentialsProvider {
         private static readonly TimeSpan HeartbeatTimeout =
 #if DEBUG
             // In debug mode, increase the timeout significantly, so that when the host is paused in debugger,
@@ -123,29 +123,14 @@ namespace Microsoft.R.Host.Client.Host {
 
         private async Task CreateBrokerSessionAsync(string name, string rCommandLineArguments, CancellationToken cancellationToken) {
             rCommandLineArguments = rCommandLineArguments ?? string.Empty;
-            var sessions = new SessionsWebService(HttpClient);
-
-            while (true) {
-                bool? isValidCredentials = null;
-                try {
-                    UpdateCredentials();
-                    isValidCredentials = true;
-
-                    await sessions.PutAsync(name, new SessionCreateRequest {
-                        InterpreterId = _interpreterId,
-                        CommandLineArguments = rCommandLineArguments,
-                    }, cancellationToken);
-                    break;
-                } catch (UnauthorizedAccessException) {
-                    isValidCredentials = false;
-                    continue;
-                } catch (BrokerApiErrorException apiex) {
-                    throw new RHostDisconnectedException(apiex);
-                } finally {
-                    if (isValidCredentials != null) {
-                        OnCredentialsValidated(isValidCredentials.Value);
-                    }
-                }
+            var sessions = new SessionsWebService(HttpClient, this);
+            try {
+                await sessions.PutAsync(name, new SessionCreateRequest {
+                    InterpreterId = _interpreterId,
+                    CommandLineArguments = rCommandLineArguments,
+                }, cancellationToken);
+            } catch (BrokerApiErrorException apiex) {
+                throw new RHostDisconnectedException(apiex);
             }
         }
 
@@ -212,5 +197,9 @@ namespace Microsoft.R.Host.Client.Host {
         public virtual string HandleUrl(string url, CancellationToken ct) {
             return url;
         }
+
+        void ICredentialsProvider.UpdateCredentials() => UpdateCredentials();
+
+        void ICredentialsProvider.OnCredentialsValidated(bool isValid) => OnCredentialsValidated(isValid);
     }
 }

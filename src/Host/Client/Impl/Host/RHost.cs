@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -13,12 +14,9 @@ using Microsoft.Common.Core.Diagnostics;
 using Microsoft.Common.Core.Logging;
 using Microsoft.Common.Core.Shell;
 using Microsoft.R.Host.Client.Host;
-using Newtonsoft.Json;
+using Microsoft.R.Host.Protocol;
 using Newtonsoft.Json.Linq;
 using static System.FormattableString;
-using System.Collections.Generic;
-using System.Runtime;
-using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Client {
     public sealed partial class RHost : IDisposable, IRExpressionEvaluator, IRBlobService {
@@ -85,7 +83,10 @@ namespace Microsoft.R.Host.Client {
                 throw new OperationCanceledException(new OperationCanceledException().Message, ex);
             }
 
-            _log.Response(message.ToString(), _rLoopDepth);
+            if (message != null) {
+                _log.Response(message.ToString(), _rLoopDepth);
+            }
+
             return message;
         }
 
@@ -373,6 +374,9 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
+        public Task RequestShutdownAsync(bool saveRData) =>
+            NotifyAsync("!Shutdown", _cts.Token, saveRData);
+
         public async Task DisconnectAsync() {
             if (_runTask == null) {
                 throw new InvalidOperationException("Not connected to host.");
@@ -385,14 +389,6 @@ namespace Microsoft.R.Host.Client {
             // client, cancel this token to indicate that we're shutting down the host - SendAsync and
             // ReceiveAsync will take care of wrapping any WSE into OperationCanceledException.
             _cts.Cancel();
-
-            try {
-                // Don't use _cts, since it's already cancelled. We want to try to send this message in
-                // any case, and we'll catch MessageTransportException if no-one is on the other end anymore.
-                await NotifyAsync("!End", new CancellationToken());
-            } catch (OperationCanceledException) {
-            } catch (MessageTransportException) {
-            }
 
             try {
                 await _runTask;
@@ -410,7 +406,9 @@ namespace Microsoft.R.Host.Client {
                 _log.EnterRLoop(_rLoopDepth++);
                 while (!ct.IsCancellationRequested) {
                     var message = await ReceiveMessageAsync(ct);
-                    if (message.IsResponse) {
+                    if (message == null) {
+                        return null;
+                    } else if (message.IsResponse) {
                         Request request;
                         if (!_requests.TryRemove(message.RequestId, out request)) {
                             throw ProtocolError($"Mismatched response - no request with such ID:", message);
@@ -425,7 +423,9 @@ namespace Microsoft.R.Host.Client {
                     try {
                         switch (message.Name) {
                             case "!End":
-                                return null;
+                                message.ExpectArguments(1);
+                                await _callbacks.Shutdown(message.GetBoolean(0, "rdataSaved"));
+                                break;
 
                             case "!CanceledAll":
                                 CancelAll();
@@ -571,7 +571,7 @@ namespace Microsoft.R.Host.Client {
 
             try {
                 var message = await ReceiveMessageAsync(ct);
-                if (!message.IsNotification || message.Name != "!Microsoft.R.Host") {
+                if (message == null || !message.IsNotification || message.Name != "!Microsoft.R.Host") {
                     throw ProtocolError($"Microsoft.R.Host handshake expected:", message);
                 }
 

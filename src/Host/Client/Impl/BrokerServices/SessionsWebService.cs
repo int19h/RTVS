@@ -10,8 +10,8 @@ using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Client.BrokerServices {
     public class SessionsWebService : WebService, ISessionsWebService {
-        public SessionsWebService(HttpClient httpClient)
-            : base(httpClient) {
+        public SessionsWebService(HttpClient httpClient, ICredentialsProvider credentialsProvider)
+            : base(httpClient, credentialsProvider) {
         }
 
         private static readonly Uri getUri = new Uri("/sessions", UriKind.Relative);
