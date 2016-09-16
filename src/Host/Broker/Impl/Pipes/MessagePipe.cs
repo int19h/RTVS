@@ -15,6 +15,8 @@ using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Broker.Pipes {
     public class MessagePipe {
+        private static readonly byte[] _hostDisconnectMessage = new byte[0];
+
         private readonly ILogger _logger;
         private int _pid;
 
@@ -27,8 +29,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
         private Queue<byte[]> _unsentPendingRequests = new Queue<byte[]>();
 
         private byte[] _handshake;
-        private IMessagePipeEnd _hostEnd;
-        private IOwnedMessagePipeEnd _clientEnd;
+        private IMessagePipeEnd _hostEnd, _clientEnd;
 
         private sealed class HostEnd : IMessagePipeEnd {
             private readonly MessagePipe _pipe;
@@ -37,17 +38,22 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 _pipe = pipe;
             }
 
+            public void Dispose() {
+                Volatile.Write(ref _pipe._hostEnd, null);
+                _pipe._hostMessages.Post(_hostDisconnectMessage);
+            }
+
             public void Write(byte[] message) {
                 _pipe.LogMessage(MessageOrigin.Host, message);
                 _pipe._hostMessages.Post(message);
             }
 
             public async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
-                return await _pipe._clientMessages.ReceiveAsync();
+                return await _pipe._clientMessages.ReceiveAsync(cancellationToken);
             }
         }
 
-        private sealed class ClientEnd : IOwnedMessagePipeEnd {
+        private sealed class ClientEnd : IMessagePipeEnd {
             private readonly MessagePipe _pipe;
             private bool _isFirstRead = true;
 
@@ -56,7 +62,10 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public void Dispose() {
-                var unsent = new Queue<byte[]>(_pipe._sentPendingRequests.OrderBy(kv => kv.Key).Select(kv => kv.Value));
+                var unsent = new Queue<byte[]>(_pipe._sentPendingRequests
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => kv.Value)
+                    .Where(msg => msg != _hostDisconnectMessage));
                 _pipe._sentPendingRequests.Clear();
                 Volatile.Write(ref _pipe._unsentPendingRequests, unsent);
                 Volatile.Write(ref _pipe._clientEnd, null);
@@ -75,10 +84,15 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
+                if (Volatile.Read(ref _pipe._hostEnd) == null) {
+                    throw new HostDisconnectedException();
+                }
+
                 var handshake = _pipe._handshake;
                 if (_isFirstRead) {
                     _isFirstRead = false;
                     if (handshake != null) {
+                        _pipe.LogMessage(MessageOrigin.Host, handshake, replay: true);
                         return handshake;
                     }
                 }
@@ -86,8 +100,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 byte[] message;
                 if (_pipe._unsentPendingRequests.Count != 0) {
                     message = _pipe._unsentPendingRequests.Dequeue();
+                    _pipe.LogMessage(MessageOrigin.Host, message, replay: true);
                 } else {
-                    message = await _pipe._hostMessages.ReceiveAsync();
+                    message = await _pipe._hostMessages.ReceiveAsync(cancellationToken);
+                }
+
+                if (message == _hostDisconnectMessage) {
+                    throw new HostDisconnectedException();
                 }
 
                 ulong id, requestId;
@@ -131,7 +150,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
         /// one end can be active at once. The existing end must be disposed before calling this method
         /// to create a new one.
         /// </remarks>
-        public IOwnedMessagePipeEnd ConnectClient() {
+        public IMessagePipeEnd ConnectClient() {
             if (Interlocked.CompareExchange(ref _clientEnd, new ClientEnd(this), null) != null) {
                 throw new InvalidOperationException(Resources.Exception_PipeHasClientEnd);
             }
@@ -149,7 +168,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             Client
         }
 
-        private void LogMessage(MessageOrigin origin, byte[] messageData) {
+        private void LogMessage(MessageOrigin origin, byte[] messageData, bool replay = false) {
             if (_logger == null) {
                 return;
             }
@@ -165,7 +184,9 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             _logger.Log(LogLevel.Trace, 0, message, null, delegate {
-                var sb = new StringBuilder($"|{_pid}|{(origin == MessageOrigin.Host ? ">" : "<")} #{message.Id}# {message.Name} ");
+                var sb = new StringBuilder(replay ? "(replay) " : "");
+
+                sb.Append($"|{_pid}|{(origin == MessageOrigin.Host ? ">" : "<")} #{message.Id}# {message.Name} ");
 
                 if (message.IsResponse) {
                     sb.Append($"#{message.RequestId}# ");

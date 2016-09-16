@@ -428,6 +428,10 @@ namespace Microsoft.R.Host.Client.Session {
             lockToken.Reset();
         }
 
+        Task IRCallbacks.Shutdown(bool rDataSaved) {
+            return Task.CompletedTask;
+        }
+
         private void ClearPendingRequests(OperationCanceledException exception) {
             RSessionRequestSource requestSource;
             while (_pendingRequestSources.TryReceive(out requestSource)) {
@@ -484,7 +488,7 @@ namespace Microsoft.R.Host.Client.Session {
             evaluationCts.Cancel();
             await evaluationTask;
 
-            AfterRequest?.Invoke(this, new RAfterRequestEventArgs(contexts, prompt, consoleInput, addToHistory, _currentRequestSource.IsVisible));
+            AfterRequest?.Invoke(this, new RAfterRequestEventArgs(contexts, prompt, consoleInput, addToHistory, currentRequest?.IsVisible ?? false));
 
             return consoleInput;
         }

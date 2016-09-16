@@ -24,7 +24,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
         private static readonly byte[] _endMessage;
         private readonly ILogger _sessionLogger;
         private Process _process;
-        private volatile MessagePipe _pipe;
+        private MessagePipe _pipe;
+        private volatile IMessagePipeEnd _hostEnd;
 
         public SessionManager Manager { get; }
 
@@ -39,6 +40,21 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public string CommandLineArguments { get; }
 
+        private volatile SessionState _state;
+
+        public SessionState State {
+            get {
+                return _state;
+            }
+            set {
+                var oldState = _state;
+                _state = value;
+                StateChanged?.Invoke(this, new SessionStateChangedEventArgs(oldState, value));
+            }
+        }
+
+        public event EventHandler<SessionStateChangedEventArgs> StateChanged;
+
         public Process Process => _process;
 
         public SessionInfo Info => new SessionInfo {
@@ -52,9 +68,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true)) {
                     writer.Write(ulong.MaxValue - 1);
                     writer.Write(0UL);
-                    writer.Write("!End".ToCharArray());
+                    writer.Write("!Shutdown".ToCharArray());
                     writer.Write((byte)0);
-                    writer.Write("[]".ToCharArray());
+                    writer.Write("[false]".ToCharArray());
                     writer.Write((byte)0);
                 }
 
@@ -62,16 +78,22 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger) {
+        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger, ILogger messageLogger) {
             Manager = manager;
             Interpreter = interpreter;
             User = user;
             Id = id;
             CommandLineArguments = commandLineArguments;
             _sessionLogger = sessionLogger;
+
+            _pipe = new MessagePipe(messageLogger);
         }
 
-        public void StartHost(SecureString password, string profilePath, ILogger outputLogger, ILogger messageLogger) {
+        public void StartHost(SecureString password, string profilePath, ILogger outputLogger) {
+            if (_hostEnd != null) {
+                throw new InvalidOperationException("Host process is already running");
+            }
+
             string brokerPath = Path.GetDirectoryName(typeof(Program).Assembly.GetAssemblyPath());
             string rhostExePath = Path.Combine(brokerPath, RHostExe);
             string arguments = $"--rhost-name \"{Id}\" {CommandLineArguments}";
@@ -145,7 +167,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
             };
 
             _process.Exited += delegate {
-                _pipe = null;
+                _hostEnd?.Dispose();
+                _hostEnd = null;
+                State = SessionState.Dormant;
             };
 
             _sessionLogger.LogInformation(Resources.Info_StartingRHost, Id, User.Name, rhostExePath, arguments);
@@ -154,8 +178,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             _process.BeginErrorReadLine();
 
-            _pipe = new MessagePipe(messageLogger);
             var hostEnd = _pipe.ConnectHost(_process.Id);
+            _hostEnd = hostEnd;
 
             ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
             HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
@@ -174,17 +198,22 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         public void KillHost() {
+            _sessionLogger.LogTrace("Killing host process for session '{0}'.", Id);
+
             try {
                 _process?.Kill();
-            } catch (Win32Exception) {
-            } catch (InvalidOperationException) {
+            } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
+                _sessionLogger.LogError(0, ex, "Failed to kill host process for session '{0}'.", Id);
             }
 
             _process = null;
         }
 
-        public IOwnedMessagePipeEnd ConnectClient() {
+        public IMessagePipeEnd ConnectClient() {
+            _sessionLogger.LogTrace("Connecting client to message pipe for session '{0}'.", Id);
+
             if (_pipe == null) {
+                _sessionLogger.LogError("Session '{0}' already has a client pipe connected.", Id);
                 throw new InvalidOperationException(string.Format(Resources.Error_RHostFailedToStart, Id));
             }
 
@@ -220,8 +249,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
                 pipe.Write(message);
             }
-
-            pipe.Write(_endMessage);
         }
 
         private static async Task<bool> FillFromStreamAsync(Stream stream, byte[] buffer) {

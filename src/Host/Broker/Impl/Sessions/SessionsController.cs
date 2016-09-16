@@ -70,7 +70,15 @@ namespace Microsoft.R.Host.Broker.Sessions {
             if (session?.Process?.HasExited ?? true) {
                 return NotFound();
             }
-            return new WebSocketPipeAction(session);
+
+            IMessagePipeEnd pipe;
+            try {
+                pipe = session.ConnectClient();
+            } catch (InvalidOperationException) {
+                return new ApiErrorResult(BrokerApiError.PipeAlreadyConnected);
+            }
+
+            return new WebSocketPipeAction(id, pipe);
         }
     }
 }
