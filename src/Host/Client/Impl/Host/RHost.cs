@@ -298,6 +298,9 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
+        public Task RequestShutdownAsync(bool saveRData) =>
+            NotifyAsync("!Shutdown", _cts.Token, saveRData);
+
         public async Task DisconnectAsync() {
             if (_runTask == null) {
                 throw new InvalidOperationException("Not connected to host.");
@@ -310,14 +313,6 @@ namespace Microsoft.R.Host.Client {
             // client, cancel this token to indicate that we're shutting down the host - SendAsync and
             // ReceiveAsync will take care of wrapping any WSE into OperationCanceledException.
             _cts.Cancel();
-
-            try {
-                // Don't use _cts, since it's already cancelled. We want to try to send this message in
-                // any case, and we'll catch MessageTransportException if no-one is on the other end anymore.
-                await NotifyAsync("!End", new CancellationToken());
-            } catch (OperationCanceledException) {
-            } catch (MessageTransportException) {
-            }
 
             try {
                 await _runTask;
@@ -349,8 +344,10 @@ namespace Microsoft.R.Host.Client {
 
                     try {
                         switch (message.Name) {
-                            case "!End":
-                                return null;
+                            case "!Shutdown":
+                                message.ExpectArguments(1);
+                                await _callbacks.Shutdown(message.GetBoolean(0, "rdataSaved"));
+                                break;
 
                             case "!CanceledAll":
                                 CancelAll();

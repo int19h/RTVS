@@ -38,6 +38,21 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public string CommandLineArguments { get; }
 
+        private volatile SessionState _state;
+
+        public SessionState State {
+            get {
+                return _state;
+            }
+            set {
+                var oldState = _state;
+                _state = value;
+                StateChanged?.Invoke(this, new SessionStateChangedEventArgs(oldState, value));
+            }
+        }
+
+        public event EventHandler<SessionStateChangedEventArgs> StateChanged;
+
         public Process Process => _process;
 
         public SessionInfo Info => new SessionInfo {
@@ -51,9 +66,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true)) {
                     writer.Write(ulong.MaxValue - 1);
                     writer.Write(0UL);
-                    writer.Write("!End".ToCharArray());
+                    writer.Write("!Shutdown".ToCharArray());
                     writer.Write((byte)0);
-                    writer.Write("[]".ToCharArray());
+                    writer.Write("[false]".ToCharArray());
                     writer.Write((byte)0);
                 }
 
@@ -145,6 +160,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             _process.Exited += delegate {
                 _pipe = null;
+                State = SessionState.Dormant;
             };
 
             _sessionLogger.LogInformation(Resources.Info_StartingRHost, Id, User.Name, rhostExePath, arguments);
@@ -208,7 +224,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 pipe.Write(message);
             }
 
-            pipe.Write(_endMessage);
+            //pipe.Write(_endMessage);
         }
 
         private static async Task<bool> FillFromStreamAsync(Stream stream, byte[] buffer) {

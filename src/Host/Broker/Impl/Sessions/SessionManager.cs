@@ -44,15 +44,23 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        public Session CreateSession(IIdentity user, string id, Interpreter interpreter, SecureString password, string profilePath, string commandLineArguments) {
-            Session session;
-
+        private List<Session> GetOrCreateSessionList(IIdentity user) {
             lock (_sessions) {
                 List<Session> userSessions;
                 _sessions.TryGetValue(user.Name, out userSessions);
                 if (userSessions == null) {
                     _sessions[user.Name] = userSessions = new List<Session>();
                 }
+
+                return userSessions;
+            }
+        }
+
+        public Session CreateSession(IIdentity user, string id, Interpreter interpreter, SecureString password, string profilePath, string commandLineArguments) {
+            Session session;
+
+            lock (_sessions) {
+                var userSessions = GetOrCreateSessionList(user);
 
                 var oldSession = userSessions.FirstOrDefault(s => s.Id == id);
                 if (oldSession != null) {
@@ -61,6 +69,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 }
 
                 session = new Session(this, user, id, interpreter, commandLineArguments, _sessionLogger);
+                session.StateChanged += Session_StateChanged;
+
                 userSessions.Add(session);
             }
 
@@ -71,6 +81,16 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 _loggingOptions.LogPackets ? _messageLogger : null);
 
             return session;
+        }
+
+        private void Session_StateChanged(object sender, SessionStateChangedEventArgs e) {
+            var session = (Session)sender;
+            if (e.NewState == SessionState.Terminated) {
+                lock (_sessions) {
+                    var userSessions = GetOrCreateSessionList(session.User);
+                    userSessions.Remove(session);
+                }
+            }
         }
     }
 }

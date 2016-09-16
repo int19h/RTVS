@@ -30,11 +30,13 @@ namespace Microsoft.R.Host.Broker.Pipes {
 
             var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host");
 
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
             using (var pipe = _session.ConnectClient()) {
-                Task wsToPipe = WebSocketToPipeWorker(socket, pipe, context.RequestAborted);
-                Task pipeToWs = PipeToWebSocketWorker(socket, pipe, context.RequestAborted);
-                await Task.WhenAll(wsToPipe, pipeToWs);
+                Task wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
+                Task pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
+                await Task.WhenAny(wsToPipe, pipeToWs).Unwrap();
             }
+            cts.Cancel();
         }
 
         private static async Task WebSocketToPipeWorker(WebSocket socket, IMessagePipeEnd pipe, CancellationToken cancellationToken) {
