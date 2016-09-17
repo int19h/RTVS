@@ -42,7 +42,7 @@ namespace Microsoft.R.Host.Client {
                 buffer.SetLength(index + wsrr.Count);
 
                 if (wsrr.CloseStatus != null) {
-                    throw new MessageTransportDisconnectedException("Connection closed by host.");
+                    return null;
                 }
 
                 if (wsrr.EndOfMessage) {

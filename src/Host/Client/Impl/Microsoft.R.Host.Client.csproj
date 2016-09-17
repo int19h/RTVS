@@ -64,7 +64,6 @@
     <Compile Include="DataInspection\RSessionExtensions.cs" />
     <Compile Include="Definitions\IRSessionProviderCallback.cs" />
     <Compile Include="Definitions\IRSessionSwitchBrokerTransaction.cs" />
-    <Compile Include="Definitions\MessageTransportDisconnectedException.cs" />
     <Compile Include="Host\BrokerClientProxy.cs" />
     <Compile Include="Host\NullRCallbacks.cs" />
     <Compile Include="Host\NullBrokerClient.cs" />

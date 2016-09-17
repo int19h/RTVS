@@ -80,7 +80,10 @@ namespace Microsoft.R.Host.Client {
                 throw new OperationCanceledException(new OperationCanceledException().Message, ex);
             }
 
-            _log.Response(message.ToString(), _rLoopDepth);
+            if (message != null) {
+                _log.Response(message.ToString(), _rLoopDepth);
+            }
+
             return message;
         }
 
@@ -328,7 +331,9 @@ namespace Microsoft.R.Host.Client {
                 _log.EnterRLoop(_rLoopDepth++);
                 while (!ct.IsCancellationRequested) {
                     var message = await ReceiveMessageAsync(ct);
-                    if (message.IsResponse) {
+                    if (message == null) {
+                        return null;
+                    } else if (message.IsResponse) {
                         Request request;
                         if (!_requests.TryRemove(message.RequestId, out request)) {
                             throw ProtocolError($"Mismatched response - no request with such ID:", message);
@@ -490,7 +495,7 @@ namespace Microsoft.R.Host.Client {
 
             try {
                 var message = await ReceiveMessageAsync(ct);
-                if (!message.IsNotification || message.Name != "!Microsoft.R.Host") {
+                if (message == null || !message.IsNotification || message.Name != "!Microsoft.R.Host") {
                     throw ProtocolError($"Microsoft.R.Host handshake expected:", message);
                 }
 
@@ -523,8 +528,6 @@ namespace Microsoft.R.Host.Client {
             try {
                 _runTask = RunWorker(ct);
                 await _runTask;
-            } catch (MessageTransportDisconnectedException ex) {
-                throw new RHostDisconnectedException(ex.Message, ex);
             } catch (OperationCanceledException) when (ct.IsCancellationRequested) {
                 // Expected cancellation, do not propagate, just exit process
             } catch (MessageTransportException ex) when (ct.IsCancellationRequested) {
