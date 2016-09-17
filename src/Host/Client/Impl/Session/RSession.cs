@@ -474,7 +474,7 @@ namespace Microsoft.R.Host.Client.Session {
             evaluationCts.Cancel();
             await evaluationTask;
 
-            AfterRequest?.Invoke(this, new RAfterRequestEventArgs(contexts, prompt, consoleInput, addToHistory, _currentRequestSource.IsVisible));
+            AfterRequest?.Invoke(this, new RAfterRequestEventArgs(contexts, prompt, consoleInput, addToHistory, currentRequest?.IsVisible ?? false));
 
             return consoleInput;
         }

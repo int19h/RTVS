@@ -231,8 +231,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
                 pipe.Write(message);
             }
-
-            //pipe.Write(_endMessage);
         }
 
         private static async Task<bool> FillFromStreamAsync(Stream stream, byte[] buffer) {

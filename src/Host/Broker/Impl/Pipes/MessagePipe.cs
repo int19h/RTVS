@@ -49,7 +49,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             public async Task<byte[]> ReadAsync(CancellationToken cancellationToken) {
-                return await _pipe._clientMessages.ReceiveAsync();
+                return await _pipe._clientMessages.ReceiveAsync(cancellationToken);
             }
         }
 
@@ -100,7 +100,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 if (_pipe._unsentPendingRequests.Count != 0) {
                     message = _pipe._unsentPendingRequests.Dequeue();
                 } else {
-                    message = await _pipe._hostMessages.ReceiveAsync();
+                    message = await _pipe._hostMessages.ReceiveAsync(cancellationToken);
                 }
 
                 if (message == _hostDisconnectMessage) {

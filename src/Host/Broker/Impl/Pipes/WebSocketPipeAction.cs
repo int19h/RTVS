@@ -29,15 +29,23 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             using (var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host")) {
+                Task wsToPipe, pipeToWs, completed;
+
                 var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
                 using (var pipe = _session.ConnectClient()) {
-                    Task wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
-                    Task pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
-                    await Task.WhenAny(wsToPipe, pipeToWs).Unwrap();
+                    wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
+                    pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
+                    completed = await Task.WhenAny(wsToPipe, pipeToWs);
                 }
 
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
-                cts.Cancel();
+                if (completed == pipeToWs) {
+                    // If the pipe end is exhausted, tell the client that there's no more messages to follow,
+                    // so that it can gracefully disconnect from its end. 
+                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", context.RequestAborted);
+                } else {
+                    // If the client disconnected, then just cancel any outstanding reads from the pipe.
+                    cts.Cancel();
+                }
             }
         }
 
