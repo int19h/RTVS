@@ -15,10 +15,13 @@ using Newtonsoft.Json;
 
 namespace Microsoft.R.Host.Client.BrokerServices {
     public class WebService {
+        private readonly ICredentialsProvider _credentialsProvider;
+
         protected HttpClient HttpClient { get; }
 
-        public WebService(HttpClient httpClient) {
+        public WebService(HttpClient httpClient, ICredentialsProvider credentialsProvider) {
             HttpClient = httpClient;
+            _credentialsProvider = credentialsProvider;
         }
 
         private static HttpResponseMessage EnsureSuccessStatusCode(HttpResponseMessage response) {
@@ -27,7 +30,7 @@ namespace Microsoft.R.Host.Client.BrokerServices {
             }
 
             IEnumerable<string> values;
-            if(response.Headers.TryGetValues(CustomHttpHeaders.RTVSApiError, out values)) {
+            if (response.Headers.TryGetValues(CustomHttpHeaders.RTVSApiError, out values)) {
                 var s = values.FirstOrDefault();
                 if (s != null) {
                     BrokerApiError apiError;
@@ -42,9 +45,36 @@ namespace Microsoft.R.Host.Client.BrokerServices {
             return response.EnsureSuccessStatusCode();
         }
 
+        private async Task<T> RepeatUntilAuthenticatedAsync<T>(Func<Task<T>> action) {
+            while (true) {
+                bool? isValidCredentials = null;
+                try {
+                    _credentialsProvider.UpdateCredentials();
+                    isValidCredentials = true;
+                    return await action();
+                } catch (UnauthorizedAccessException) {
+                    isValidCredentials = false;
+                    continue;
+                } finally {
+                    if (isValidCredentials != null) {
+                        _credentialsProvider.OnCredentialsValidated(isValidCredentials.Value);
+                    }
+                }
+            }
+        }
+
+        private async Task RepeatUntilAuthenticatedAsync(Func<Task> action) {
+            await RepeatUntilAuthenticatedAsync(async () => {
+                await action();
+                return false;
+            });
+        }
+
         public async Task<TResponse> HttpGetAsync<TResponse>(Uri uri, CancellationToken cancellationToken = default(CancellationToken)) {
-            var resonse = await HttpClient.GetAsync(uri, cancellationToken);
-            return JsonConvert.DeserializeObject<TResponse>(await resonse.Content.ReadAsStringAsync());
+            var response = await RepeatUntilAuthenticatedAsync(async () => {
+                return EnsureSuccessStatusCode(await HttpClient.GetAsync(uri, cancellationToken));
+            });
+            return JsonConvert.DeserializeObject<TResponse>(await response.Content.ReadAsStringAsync());
         }
 
         public Task<TResponse> HttpGetAsync<TResponse>(UriTemplate uriTemplate, CancellationToken cancellationToken = default(CancellationToken), params object[] args) =>
@@ -52,8 +82,11 @@ namespace Microsoft.R.Host.Client.BrokerServices {
 
         public async Task HttpPutAsync<TRequest>(Uri uri, TRequest request) {
             var requestBody = JsonConvert.SerializeObject(request);
-            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-            EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content));
+
+            await RepeatUntilAuthenticatedAsync(async () => {
+                var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content));
+            });
         }
 
         public Task HttpPutAsync<TRequest>(UriTemplate uriTemplate, TRequest request, params object[] args) =>
@@ -61,19 +94,27 @@ namespace Microsoft.R.Host.Client.BrokerServices {
 
         public async Task<TResponse> HttpPutAsync<TRequest, TResponse>(Uri uri, TRequest request, CancellationToken cancellationToken = default(CancellationToken)) {
             var requestBody = JsonConvert.SerializeObject(request);
-            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-            var response = EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content, cancellationToken));
+
+            var response = await RepeatUntilAuthenticatedAsync(async () => {
+                var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+                return EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content, cancellationToken));
+            });
+
             var responseBody = await response.Content.ReadAsStringAsync();
             try {
                 return JsonConvert.DeserializeObject<TResponse>(responseBody);
-            } catch(JsonSerializationException ex) {
+            } catch (JsonSerializationException ex) {
                 throw new ProtocolViolationException(ex.Message);
             }
         }
 
         public async Task<Stream> HttpPostAsync(Uri uri, Stream request) {
             var content = new StreamContent(request);
-            var response = (await HttpClient.PostAsync(uri, content)).EnsureSuccessStatusCode();
+
+            var response = await RepeatUntilAuthenticatedAsync(async () => {
+                return EnsureSuccessStatusCode(await HttpClient.PostAsync(uri, content));
+            });
+
             return await response.Content.ReadAsStreamAsync();
         }
 

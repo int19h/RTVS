@@ -347,7 +347,7 @@ namespace Microsoft.R.Host.Client {
 
                     try {
                         switch (message.Name) {
-                            case "!Shutdown":
+                            case "!End":
                                 message.ExpectArguments(1);
                                 await _callbacks.Shutdown(message.GetBoolean(0, "rdataSaved"));
                                 break;
