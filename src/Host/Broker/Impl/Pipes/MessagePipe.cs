@@ -92,6 +92,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 if (_isFirstRead) {
                     _isFirstRead = false;
                     if (handshake != null) {
+                        _pipe.LogMessage(MessageOrigin.Host, handshake, replay: true);
                         return handshake;
                     }
                 }
@@ -99,6 +100,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
                 byte[] message;
                 if (_pipe._unsentPendingRequests.Count != 0) {
                     message = _pipe._unsentPendingRequests.Dequeue();
+                    _pipe.LogMessage(MessageOrigin.Host, message, replay: true);
                 } else {
                     message = await _pipe._hostMessages.ReceiveAsync(cancellationToken);
                 }
@@ -166,7 +168,7 @@ namespace Microsoft.R.Host.Broker.Pipes {
             Client
         }
 
-        private void LogMessage(MessageOrigin origin, byte[] messageData) {
+        private void LogMessage(MessageOrigin origin, byte[] messageData, bool replay = false) {
             if (_logger == null) {
                 return;
             }
@@ -182,7 +184,9 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             _logger.Log(LogLevel.Trace, 0, message, null, delegate {
-                var sb = new StringBuilder($"|{_pid}|{(origin == MessageOrigin.Host ? ">" : "<")} #{message.Id}# {message.Name} ");
+                var sb = new StringBuilder(replay ? "(replay) " : "");
+
+                sb.Append($"|{_pid}|{(origin == MessageOrigin.Host ? ">" : "<")} #{message.Id}# {message.Name} ");
 
                 if (message.IsResponse) {
                     sb.Append($"#{message.RequestId}# ");

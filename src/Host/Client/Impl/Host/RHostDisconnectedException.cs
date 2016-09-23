@@ -34,6 +34,8 @@ namespace Microsoft.R.Host.Client.Host {
                     return Resources.Error_NoRInterpreters;
                 case BrokerApiError.InterpreterNotFound:
                     return Resources.Error_InterpreterNotFound;
+                case BrokerApiError.PipeAlreadyConnected:
+                    return "This session already has an active client connection";
             }
 
             Debug.Fail("No localized resources for broker API error" + ex.ApiError.ToString());

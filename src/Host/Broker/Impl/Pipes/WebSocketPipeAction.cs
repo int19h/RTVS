@@ -12,39 +12,41 @@ using Microsoft.R.Host.Broker.Sessions;
 
 namespace Microsoft.R.Host.Broker.Pipes {
     public class WebSocketPipeAction : IActionResult {
-        private readonly Session _session;
+        private readonly string _id;
+        private readonly IMessagePipeEnd _pipe;
 
-        public WebSocketPipeAction(Session session) {
-            _session = session;
+        public WebSocketPipeAction(string id, IMessagePipeEnd pipe) {
+            _id = id;
+            _pipe = pipe;
         }
 
         public async Task ExecuteResultAsync(ActionContext actionContext) {
-            var context = actionContext.HttpContext;
-            var httpResponse = context.Features.Get<IHttpResponseFeature>();
+            using (_pipe) {
+                var context = actionContext.HttpContext;
+                var httpResponse = context.Features.Get<IHttpResponseFeature>();
 
-            if (!context.WebSockets.IsWebSocketRequest) {
-                httpResponse.ReasonPhrase = "Websocket connection expected";
-                httpResponse.StatusCode = 401;
-                return;
-            }
-
-            using (var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host")) {
-                Task wsToPipe, pipeToWs, completed;
-
-                var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
-                using (var pipe = _session.ConnectClient()) {
-                    wsToPipe = WebSocketToPipeWorker(socket, pipe, cts.Token);
-                    pipeToWs = PipeToWebSocketWorker(socket, pipe, cts.Token);
-                    completed = await Task.WhenAny(wsToPipe, pipeToWs);
+                if (!context.WebSockets.IsWebSocketRequest) {
+                    httpResponse.ReasonPhrase = "Websocket connection expected";
+                    httpResponse.StatusCode = 401;
+                    return;
                 }
 
-                if (completed == pipeToWs) {
-                    // If the pipe end is exhausted, tell the client that there's no more messages to follow,
-                    // so that it can gracefully disconnect from its end. 
-                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", context.RequestAborted);
-                } else {
-                    // If the client disconnected, then just cancel any outstanding reads from the pipe.
-                    cts.Cancel();
+                using (var socket = await context.WebSockets.AcceptWebSocketAsync("Microsoft.R.Host")) {
+                    Task wsToPipe, pipeToWs, completed;
+
+                    var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                    wsToPipe = WebSocketToPipeWorker(socket, _pipe, cts.Token);
+                    pipeToWs = PipeToWebSocketWorker(socket, _pipe, cts.Token);
+                    completed = await Task.WhenAny(wsToPipe, pipeToWs);
+
+                    if (completed == pipeToWs) {
+                        // If the pipe end is exhausted, tell the client that there's no more messages to follow,
+                        // so that it can gracefully disconnect from its end. 
+                        await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", context.RequestAborted);
+                    } else {
+                        // If the client disconnected, then just cancel any outstanding reads from the pipe.
+                        cts.Cancel();
+                    }
                 }
             }
         }

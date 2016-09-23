@@ -2,6 +2,8 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -114,11 +116,36 @@ namespace Microsoft.R.Host.Client.Host {
             DisposableBag.ThrowIfDisposed();
             await TaskUtilities.SwitchToBackgroundThread();
 
-            await CreateBrokerSessionAsync(name, rCommandLineArguments, cancellationToken);
-            var webSocket = await ConnectToBrokerAsync(name, cancellationToken);
+            bool sessionExists = await IsSessionRunningAsync(name);
+
+            WebSocket webSocket;
+            while (true) {
+                if (!sessionExists) {
+                    await CreateBrokerSessionAsync(name, rCommandLineArguments, cancellationToken);
+                }
+
+                try {
+                    webSocket = await ConnectToBrokerAsync(name, cancellationToken);
+                    break;
+                } catch (RHostDisconnectedException ex) when (
+                    sessionExists && ((ex.InnerException as WebException)?.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.NotFound
+                ) {
+                    // If we believed the session to be running, but failed to connect to its pipe, it probably terminated
+                    // between our check and our attempt to connect. Retry, but recreate the session this time.
+                    sessionExists = false;
+                    continue;
+                }
+            }
+
             var host = CreateRHost(name, callbacks, webSocket);
             await GetHostInformationAsync(cancellationToken);
             return host;
+        }
+
+        private async Task<bool> IsSessionRunningAsync(string name) {
+            var sessionsService = new SessionsWebService(HttpClient, this);
+            var sessions = await sessionsService.GetAsync();
+            return sessions.Any(s => s.Id == name);
         }
 
         private async Task CreateBrokerSessionAsync(string name, string rCommandLineArguments, CancellationToken cancellationToken) {
@@ -165,9 +192,8 @@ namespace Microsoft.R.Host.Client.Host {
                 } catch (UnauthorizedAccessException) {
                     isValidCredentials = false;
                     continue;
-                } catch (Exception ex)
-                    when (ex is InvalidOperationException || ex is WebException || ex is ProtocolViolationException) {
-                    throw new RHostDisconnectedException(Resources.HttpErrorCreatingSession.FormatInvariant(ex.Message));
+                } catch (Exception ex) when (ex is InvalidOperationException || ex is WebException || ex is ProtocolViolationException) {
+                    throw new RHostDisconnectedException(Resources.HttpErrorCreatingSession.FormatInvariant(ex.Message), ex);
                 } finally {
                     if (isValidCredentials != null) {
                         OnCredentialsValidated(isValidCredentials.Value);

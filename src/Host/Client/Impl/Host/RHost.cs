@@ -391,6 +391,14 @@ namespace Microsoft.R.Host.Client {
             _cts.Cancel();
 
             try {
+                // Don't use _cts, since it's already cancelled. We want to try to send this message in
+                // any case, and we'll catch MessageTransportException if no-one is on the other end anymore.
+                await _transport.CloseAsync();
+            } catch (OperationCanceledException) {
+            } catch (MessageTransportException) {
+            }
+
+            try {
                 await _runTask;
             } catch (OperationCanceledException) {
                 // Expected during disconnect.

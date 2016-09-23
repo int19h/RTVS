@@ -10,12 +10,16 @@ using System.Threading.Tasks;
 using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Client {
-    internal class WebSocketMessageTransport : IMessageTransport {
+    internal sealed class WebSocketMessageTransport : IMessageTransport {
         private readonly WebSocket _socket;
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
         
         public WebSocketMessageTransport(WebSocket socket) {
             _socket = socket;
+        }
+
+        public Task CloseAsync(CancellationToken cancellationToken = default(CancellationToken)) {
+            return _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", cancellationToken);
         }
 
         public async Task<Message> ReceiveAsync(CancellationToken cancellationToken = default(CancellationToken)) {

@@ -185,17 +185,22 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         public void KillHost() {
+            _sessionLogger.LogTrace("Killing host process for session '{0}'.", Id);
+
             try {
                 _process?.Kill();
-            } catch (Win32Exception) {
-            } catch (InvalidOperationException) {
+            } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
+                _sessionLogger.LogError(0, ex, "Failed to kill host process for session '{0}'.", Id);
             }
 
             _process = null;
         }
 
         public IMessagePipeEnd ConnectClient() {
+            _sessionLogger.LogTrace("Connecting client to message pipe for session '{0}'.", Id);
+
             if (_pipe == null) {
+                _sessionLogger.LogError("Session '{0}' already has a client pipe connected.", Id);
                 throw new InvalidOperationException(string.Format(Resources.Error_RHostFailedToStart, Id));
             }
 
