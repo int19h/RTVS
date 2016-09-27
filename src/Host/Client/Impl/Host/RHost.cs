@@ -58,7 +58,7 @@ namespace Microsoft.R.Host.Client {
         }
 
         public void Dispose() {
-            _cts.Cancel();
+            DisconnectAsync().DoNotWait();
         }
 
         public void FlushLog() {
@@ -379,7 +379,7 @@ namespace Microsoft.R.Host.Client {
 
         public async Task DisconnectAsync() {
             if (_runTask == null) {
-                throw new InvalidOperationException("Not connected to host.");
+                return;
             }
 
             await TaskUtilities.SwitchToBackgroundThread();
