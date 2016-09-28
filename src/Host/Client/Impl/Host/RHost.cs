@@ -361,7 +361,7 @@ namespace Microsoft.R.Host.Client {
                 _cancelAllCts.Cancel();
 
                 try {
-                    await NotifyAsync("!/", CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken).Token, null);
+                    await NotifyAsync("!//", CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cancellationToken).Token);
                 } catch (OperationCanceledException) {
                     return;
                 } catch (MessageTransportException) {

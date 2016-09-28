@@ -15,6 +15,7 @@ using Microsoft.R.Host.Protocol;
 
 namespace Microsoft.R.Host.Broker.Pipes {
     public class MessagePipe {
+        private static readonly byte[] _cancelAllMessageName = Encoding.ASCII.GetBytes("!//");
         private static readonly byte[] _hostDisconnectMessage = new byte[0];
 
         private readonly ILogger _logger;
@@ -74,11 +75,16 @@ namespace Microsoft.R.Host.Broker.Pipes {
             public void Write(byte[] message) {
                 _pipe.LogMessage(MessageOrigin.Client, message);
 
-                ulong id, requestId;
-                Parse(message, out id, out requestId);
+                ulong requestId = MessageParser.GetRequestId(message);
 
                 byte[] request;
-                _pipe._sentPendingRequests.TryRemove(requestId, out request);
+                if (requestId == 0) {
+                    if (MessageParser.IsNamed(message, _cancelAllMessageName)) {
+                        _pipe._sentPendingRequests.Clear();
+                    }
+                } else {
+                    _pipe._sentPendingRequests.TryRemove(requestId, out request);
+                }
 
                 _pipe._clientMessages.Post(message);
             }
@@ -107,15 +113,14 @@ namespace Microsoft.R.Host.Broker.Pipes {
 
                 if (message == _hostDisconnectMessage) {
                     throw new HostDisconnectedException();
-                }
-
-                ulong id, requestId;
-                Parse(message, out id, out requestId);
-
-                if (handshake == null) {
+                } else if (handshake == null) {
                     _pipe._handshake = message;
-                } else if (requestId == ulong.MaxValue) {
-                    _pipe._sentPendingRequests.TryAdd(id, message);
+                } else {
+                    ulong requestId = MessageParser.GetRequestId(message);
+                    if (requestId == ulong.MaxValue) {
+                        ulong id = MessageParser.GetId(message);
+                        _pipe._sentPendingRequests.TryAdd(id, message);
+                    }
                 }
 
                 return message;
@@ -156,11 +161,6 @@ namespace Microsoft.R.Host.Broker.Pipes {
             }
 
             return _clientEnd;
-        }
-
-        private static void Parse(byte[] message, out ulong id, out ulong requestId) {
-            id = BitConverter.ToUInt64(message, 0);
-            requestId = BitConverter.ToUInt64(message, 8);
         }
 
         private enum MessageOrigin {
