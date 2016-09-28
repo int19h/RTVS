@@ -398,8 +398,17 @@ namespace Microsoft.R.Host.Client.Session {
             }
         }
 
+        private const int rtvsPackageVersion = 1;
+
         private static async Task LoadRtvsPackage(IRSessionEvaluation eval, string libPath) {
-            await eval.ExecuteAsync(Invariant($"base::loadNamespace('rtvs', lib.loc = {libPath.ToRStringLiteral()})"));
+            await eval.ExecuteAsync(Invariant($@"
+if (!base::isNamespaceLoaded('rtvs')) {{
+    base::loadNamespace('rtvs', lib.loc = {libPath.ToRStringLiteral()})
+}}
+if (rtvs:::version != {rtvsPackageVersion}) {{
+    warning('This R session was created using an incompatible version of RTVS, and may misbehave or crash when used with this version. Click ""Reset"" to replace it with a new clean session.');
+}}
+"));
         }
 
         public void FlushLog() {
