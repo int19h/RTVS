@@ -146,6 +146,11 @@ namespace Microsoft.R.Host.Client.Host {
             }
         }
 
+        public Task TerminateSessionAsync(string name, CancellationToken cancellationToken = default(CancellationToken)) {
+            var sessionsService = new SessionsWebService(HttpClient, this);
+            return sessionsService.DeleteAsync(name, cancellationToken);
+        }
+
         private async Task<bool> IsSessionRunningAsync(string name) {
             var sessionsService = new SessionsWebService(HttpClient, this);
             var sessions = await sessionsService.GetAsync();

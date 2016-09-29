@@ -6,6 +6,7 @@ namespace Microsoft.R.Host.Protocol {
         NoRInterpreters = 1,
         InterpreterNotFound,
         UnableToStartRHost,
+        UnableToTerminateRHost,
         PipeAlreadyConnected,
     }
 }

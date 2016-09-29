@@ -25,25 +25,33 @@ namespace Microsoft.R.Host.Client.BrokerServices {
         }
 
         private static HttpResponseMessage EnsureSuccessStatusCode(HttpResponseMessage response) {
-            if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden) {
-                throw new UnauthorizedAccessException();
-            }
+            bool disposeResponse = true;
+            try {
+                if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden) {
+                    throw new UnauthorizedAccessException();
+                }
 
-            IEnumerable<string> values;
-            if (response.Headers.TryGetValues(CustomHttpHeaders.RTVSApiError, out values)) {
-                var s = values.FirstOrDefault();
-                if (s != null) {
-                    BrokerApiError apiError;
-                    if (Enum.TryParse(s, out apiError)) {
-                        response.Headers.TryGetValues(CustomHttpHeaders.RTVSBrokerException, out values);
-                        throw new BrokerApiErrorException(apiError, values?.FirstOrDefault());
-                    } else {
-                        throw new ProtocolViolationException("Unknown broker API error");
+                IEnumerable<string> values;
+                if (response.Headers.TryGetValues(CustomHttpHeaders.RTVSApiError, out values)) {
+                    var s = values.FirstOrDefault();
+                    if (s != null) {
+                        BrokerApiError apiError;
+                        if (Enum.TryParse(s, out apiError)) {
+                            response.Headers.TryGetValues(CustomHttpHeaders.RTVSBrokerException, out values);
+                            throw new BrokerApiErrorException(apiError, values?.FirstOrDefault());
+                        } else {
+                            throw new ProtocolViolationException("Unknown broker API error");
+                        }
                     }
                 }
-            }
 
-            return response.EnsureSuccessStatusCode();
+                disposeResponse = false;
+                return response.EnsureSuccessStatusCode();
+            } finally {
+                if (disposeResponse) {
+                    response.Dispose();
+                }
+            }
         }
 
         private async Task<T> RepeatUntilAuthenticatedAsync<T>(Func<Task<T>> action) {
@@ -72,10 +80,9 @@ namespace Microsoft.R.Host.Client.BrokerServices {
         }
 
         public async Task<TResponse> HttpGetAsync<TResponse>(Uri uri, CancellationToken cancellationToken = default(CancellationToken)) {
-            var response = await RepeatUntilAuthenticatedAsync(async () => {
-                return EnsureSuccessStatusCode(await HttpClient.GetAsync(uri, cancellationToken));
-            });
-            return JsonConvert.DeserializeObject<TResponse>(await response.Content.ReadAsStringAsync());
+            using (var response = await RepeatUntilAuthenticatedAsync(async () => EnsureSuccessStatusCode(await HttpClient.GetAsync(uri, cancellationToken)))) {
+                return JsonConvert.DeserializeObject<TResponse>(await response.Content.ReadAsStringAsync());
+            }
         }
 
         public Task<TResponse> HttpGetAsync<TResponse>(UriTemplate uriTemplate, CancellationToken cancellationToken = default(CancellationToken), params object[] args) =>
@@ -86,7 +93,7 @@ namespace Microsoft.R.Host.Client.BrokerServices {
 
             await RepeatUntilAuthenticatedAsync(async () => {
                 var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content));
+                EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content)).Dispose();
             });
         }
 
@@ -96,31 +103,35 @@ namespace Microsoft.R.Host.Client.BrokerServices {
         public async Task<TResponse> HttpPutAsync<TRequest, TResponse>(Uri uri, TRequest request, CancellationToken cancellationToken = default(CancellationToken)) {
             var requestBody = JsonConvert.SerializeObject(request);
 
-            var response = await RepeatUntilAuthenticatedAsync(async () => {
+            using (var response = await RepeatUntilAuthenticatedAsync(async () => {
                 var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
                 return EnsureSuccessStatusCode(await HttpClient.PutAsync(uri, content, cancellationToken));
-            });
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-            try {
-                return JsonConvert.DeserializeObject<TResponse>(responseBody);
-            } catch (JsonSerializationException ex) {
-                throw new ProtocolViolationException(ex.Message);
+            })) {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                try {
+                    return JsonConvert.DeserializeObject<TResponse>(responseBody);
+                } catch (JsonSerializationException ex) {
+                    throw new ProtocolViolationException(ex.Message);
+                }
             }
-        }
-
-        public async Task<Stream> HttpPostAsync(Uri uri, Stream request) {
-            var content = new StreamContent(request);
-
-            var response = await RepeatUntilAuthenticatedAsync(async () => {
-                return EnsureSuccessStatusCode(await HttpClient.PostAsync(uri, content));
-            });
-
-            return await response.Content.ReadAsStreamAsync();
         }
 
         public Task<TResponse> HttpPutAsync<TRequest, TResponse>(UriTemplate uriTemplate, TRequest request, CancellationToken cancellationToken = default(CancellationToken), params object[] args) =>
             HttpPutAsync<TRequest, TResponse>(MakeUri(uriTemplate, args), request, cancellationToken);
+
+        public async Task<Stream> HttpPostAsync(Uri uri, Stream request) {
+            var content = new StreamContent(request);
+
+            using (var response = await RepeatUntilAuthenticatedAsync(async () => EnsureSuccessStatusCode(await HttpClient.PostAsync(uri, content)))) {
+                return await response.Content.ReadAsStreamAsync();
+            }
+        }
+
+        public Task HttpDeleteAsync(Uri uri, CancellationToken cancellationToken = default(CancellationToken)) =>
+            RepeatUntilAuthenticatedAsync(async () => EnsureSuccessStatusCode(await HttpClient.DeleteAsync(uri, cancellationToken)).Dispose());
+        
+        public Task HttpDeleteAsync(UriTemplate uriTemplate, CancellationToken cancellationToken = default(CancellationToken), params object[] args) =>
+            HttpDeleteAsync(MakeUri(uriTemplate, args), cancellationToken);
 
         private Uri MakeUri(UriTemplate uriTemplate, params object[] args) =>
             uriTemplate.BindByPosition(HttpClient.BaseAddress, args.Select(x => x.ToString()).ToArray());

@@ -288,45 +288,26 @@ namespace Microsoft.R.Host.Client.Session {
 
             ResetInitializationTcs();
 
-            Task<IRSessionInteraction> requestTask;
+            // Try graceful shutdown with q() first.
             try {
-                requestTask = BeginInteractionAsync(false);
-                await Task.WhenAny(requestTask, Task.Delay(200)).Unwrap();
-            } catch (RHostDisconnectedException) {
-                // BeginInteractionAsync will fail with RHostDisconnectedException if RHost isn't running. Nothing to stop.
-                return;
-            }
+                await Task.WhenAny(_hostRunTask, this.QuitAsync(), Task.Delay(500)).Unwrap();
+            } catch (Exception) { }
 
             if (_hostRunTask.IsCompleted) {
-                requestTask
-                    .ContinueWith(t => t.Result.Dispose(), TaskContinuationOptions.OnlyOnRanToCompletion)
-                    .DoNotWait();
                 return;
             }
 
-            if (requestTask.Status == TaskStatus.RanToCompletion) {
-                using (var inter = await requestTask) {
-                    // Try graceful shutdown with q() first.
-                    try {
-                        await Task.WhenAny(_hostRunTask, inter.QuitAsync(), Task.Delay(500)).Unwrap();
-                    } catch (Exception) { }
+            // If it didn't work, tell the broker to forcibly terminate the host process. 
+            try {
+                await BrokerClient.TerminateSessionAsync(_startupInfo.Name);
+            } catch (Exception) { }
 
-                    if (_hostRunTask.IsCompleted) {
-                        return;
-                    }
-
-                    // If that doesn't work, then try sending the disconnect packet to the host -
-                    // it will call R_Suicide, which is not graceful, but at least it's cooperative.
-                    await Task.WhenAny(_host.DisconnectAsync(), Task.Delay(500)).Unwrap();
-
-                    if (_hostRunTask.IsCompleted) {
-                        return;
-                    }
-                }
+            if (_hostRunTask.IsCompleted) {
+                return;
             }
 
-            // If nothing worked, then just kill the host process.
-            _host?.Dispose();
+            // If nothing worked, then just disconnect.
+            await _host?.DisconnectAsync();
             await _hostRunTask;
         }
 

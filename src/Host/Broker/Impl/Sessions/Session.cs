@@ -169,7 +169,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             _process.Exited += delegate {
                 _hostEnd?.Dispose();
                 _hostEnd = null;
-                State = SessionState.Dormant;
+                State = SessionState.Terminated;
             };
 
             _sessionLogger.LogInformation(Resources.Info_StartingRHost, Id, User.Name, rhostExePath, arguments);
@@ -202,8 +202,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
             try {
                 _process?.Kill();
-            } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
+            } catch (Exception ex) {
                 _sessionLogger.LogError(0, ex, "Failed to kill host process for session '{0}'.", Id);
+                throw;
             }
 
             _process = null;

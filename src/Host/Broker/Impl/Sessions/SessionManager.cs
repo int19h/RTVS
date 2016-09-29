@@ -77,8 +77,11 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
                 var oldSession = userSessions.FirstOrDefault(s => s.Id == id);
                 if (oldSession != null) {
-                    oldSession.KillHost();
-                    userSessions.Remove(oldSession);
+                    try {
+                        oldSession.KillHost();
+                    } catch (Exception) { }
+
+                    oldSession.State = SessionState.Terminated;
                 }
 
                 session = new Session(this, user, id, interpreter, commandLineArguments, _sessionLogger, _messageLogger);

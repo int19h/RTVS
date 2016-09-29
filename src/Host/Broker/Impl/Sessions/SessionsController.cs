@@ -64,6 +64,24 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
+        [HttpDelete("{id}")]
+        public IActionResult Delete(string id) {
+            var session = _sessionManager.GetSession(User.Identity, id);
+            if (session == null) {
+                return NotFound();
+            }
+
+            try {
+                session.KillHost();
+            } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
+                return new ApiErrorResult(BrokerApiError.UnableToTerminateRHost, ex.Message);
+            } finally {
+                session.State = SessionState.Terminated;
+            }
+
+            return Ok();
+        }
+
         [HttpGet("{id}/pipe")]
         public IActionResult GetPipe(string id) {
             var session = _sessionManager.GetSession(User.Identity, id);
