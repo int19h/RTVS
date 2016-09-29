@@ -596,6 +596,9 @@ namespace Microsoft.R.Host.Client {
                     throw ProtocolError($"Unexpected host response message:", message);
                 }
             } finally {
+                // Signal cancellation to any callbacks that haven't returned yet.
+                _cts.Cancel();
+
                 await _callbacks.Disconnected();
             }
         }
