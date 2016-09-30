@@ -22,7 +22,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
     public class Session {
         private const string RHostExe = "Microsoft.R.Host.exe";
 
-        private static readonly byte[] _endMessage;
         private readonly ILogger _sessionLogger;
         private Process _process;
         private MessagePipe _pipe;
@@ -63,21 +62,6 @@ namespace Microsoft.R.Host.Broker.Sessions {
             InterpreterId = Interpreter.Id,
             CommandLineArguments = CommandLineArguments,
         };
-
-        static Session() {
-            using (var stream = new MemoryStream()) {
-                using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true)) {
-                    writer.Write(ulong.MaxValue - 1);
-                    writer.Write(0UL);
-                    writer.Write("!Shutdown".ToCharArray());
-                    writer.Write((byte)0);
-                    writer.Write("[false]".ToCharArray());
-                    writer.Write((byte)0);
-                }
-
-                _endMessage = stream.ToArray();
-            }
-        }
 
         internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger, ILogger messageLogger) {
             Manager = manager;
