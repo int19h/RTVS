@@ -25,7 +25,6 @@ namespace Microsoft.R.Host.Client.BrokerServices {
         }
 
         private static HttpResponseMessage EnsureSuccessStatusCode(HttpResponseMessage response) {
-            bool disposeResponse = true;
             try {
                 if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden) {
                     throw new UnauthorizedAccessException();
@@ -45,12 +44,10 @@ namespace Microsoft.R.Host.Client.BrokerServices {
                     }
                 }
 
-                disposeResponse = false;
                 return response.EnsureSuccessStatusCode();
-            } finally {
-                if (disposeResponse) {
-                    response.Dispose();
-                }
+            } catch {
+                response.Dispose();
+                throw;
             }
         }
 
@@ -72,12 +69,11 @@ namespace Microsoft.R.Host.Client.BrokerServices {
             }
         }
 
-        private async Task RepeatUntilAuthenticatedAsync(Func<Task> action) {
-            await RepeatUntilAuthenticatedAsync(async () => {
+        private Task RepeatUntilAuthenticatedAsync(Func<Task> action) =>
+            RepeatUntilAuthenticatedAsync(async () => {
                 await action();
                 return false;
             });
-        }
 
         public async Task<TResponse> HttpGetAsync<TResponse>(Uri uri, CancellationToken cancellationToken = default(CancellationToken)) {
             using (var response = await RepeatUntilAuthenticatedAsync(async () => EnsureSuccessStatusCode(await HttpClient.GetAsync(uri, cancellationToken)))) {
