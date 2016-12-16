@@ -61,6 +61,7 @@ namespace Microsoft.Common.Core.Test.Fakes.Shell {
         public bool IsUnitTestEnvironment => true;
         public IFileDialog FileDialog { get; } = new TestFileDialog();
         public IProgressDialog ProgressDialog { get; } = new TestProgressDialog();
+        public ITaskDialogProvider TaskDialogs { get; } = new TestTaskDialogProvider();
         public IApplicationConstants AppConstants { get; } = new TestAppConstants();
         public ICoreServices Services { get; } = TestCoreServices.CreateReal();
 

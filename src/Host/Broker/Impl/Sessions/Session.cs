@@ -18,10 +18,14 @@ using Microsoft.R.Host.Broker.Pipes;
 using Microsoft.R.Host.Broker.Startup;
 using Microsoft.R.Host.Protocol;
 using static System.FormattableString;
+using System.Threading;
 
 namespace Microsoft.R.Host.Broker.Sessions {
     public class Session {
         private const string RHostExe = "Microsoft.R.Host.exe";
+
+        private static readonly byte[] _discardAndShutdownRequest = CreateShutdownRequest(false);
+        private static readonly byte[] _saveAndShutdownRequest = CreateShutdownRequest(false);
 
         private readonly ILogger _sessionLogger;
         private Process _process;
@@ -41,16 +45,27 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         public string CommandLineArguments { get; }
 
-        private volatile SessionState _state;
+        public bool IsTransient { get; set; }
+
+        private volatile SessionState _state = SessionState.Dormant;
+        private readonly object _stateLock = new object();
+
+        private readonly TaskCompletionSource<int> _hostTcs = new TaskCompletionSource<int>();
 
         public SessionState State {
             get {
-                return _state;
+                lock (_stateLock) {
+                    return _state;
+                }
             }
             set {
-                var oldState = _state;
-                _state = value;
-                StateChanged?.Invoke(this, new SessionStateChangedEventArgs(oldState, value));
+                lock (_stateLock) {
+                    var oldState = _state;
+                    if (oldState != value) {
+                        _state = value;
+                        StateChanged?.Invoke(this, new SessionStateChangedEventArgs(oldState, value));
+                    }
+                }
             }
         }
 
@@ -62,25 +77,49 @@ namespace Microsoft.R.Host.Broker.Sessions {
             Id = Id,
             InterpreterId = Interpreter.Id,
             CommandLineArguments = CommandLineArguments,
+            IsTransient = IsTransient,
             State = State,
         };
 
-        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, ILogger sessionLogger, ILogger messageLogger) {
+        private static byte[] CreateShutdownRequest(bool saveRData) {
+            using (var stream = new MemoryStream())
+            using (var writer = new BinaryWriter(stream, Encoding.UTF8)) {
+                // Use the largest non-reserved ID, to avoid clashing with client messages.
+                writer.Write(ulong.MaxValue - 1);
+                writer.Write(0ul);
+
+                var json = (saveRData ? "[true]" : "[false]").ToCharArray();
+                writer.Write(json, 0, json.Length);
+
+                writer.Flush();
+                stream.Flush();
+                return stream.ToArray();
+            }
+
+        }
+
+        internal Session(
+            SessionManager manager,
+            IIdentity user,
+            string id,
+            Interpreter interpreter,
+            string commandLineArguments,
+            bool isTransient,
+            ILogger sessionLogger,
+            ILogger messageLogger
+        ) {
             Manager = manager;
             Interpreter = interpreter;
             User = user;
             Id = id;
             CommandLineArguments = commandLineArguments;
+            IsTransient = isTransient;
             _sessionLogger = sessionLogger;
 
             _pipe = new MessagePipe(messageLogger);
         }
 
         public void StartHost(SecureString password, string profilePath, ILogger outputLogger, LogVerbosity verbosity) {
-            if (_hostEnd != null) {
-                throw new InvalidOperationException("Host process is already running");
-            }
-
             var useridentity = User as WindowsIdentity;
             // In remote broker User Identity type is always WindowsIdentity
             string suppressUI = (useridentity == null) ? string.Empty : " --suppress-ui ";
@@ -99,7 +138,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 RedirectStandardError = true,
                 LoadUserProfile = true
             };
-            
+
             if (useridentity != null && WindowsIdentity.GetCurrent().User != useridentity.User && password != null) {
                 uint error = NativeMethods.CredUIParseUserName(User.Name, username, username.Capacity, domain, domain.Capacity);
                 if (error != 0) {
@@ -144,7 +183,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             psi.EnvironmentVariables["PATH"] = Interpreter.Info.BinPath + ";" + Environment.GetEnvironmentVariable("PATH");
 
             psi.WorkingDirectory = Path.GetDirectoryName(rhostExePath);
-            
+
             _process = new Process {
                 StartInfo = psi,
                 EnableRaisingEvents = true,
@@ -155,43 +194,49 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 outputLogger?.LogTrace(Resources.Trace_ErrorDataReceived, process.Id, e.Data);
             };
 
-            _process.Exited += delegate {
+            _process.Exited += (sender, e) => {
                 _hostEnd?.Dispose();
                 _hostEnd = null;
                 State = SessionState.Terminated;
+
+                var process = (Process)sender;
+                _hostTcs.SetResult(process.ExitCode);
             };
 
-            _sessionLogger.LogInformation(Resources.Info_StartingRHost, Id, User.Name, rhostExePath, arguments);
-            try {
-                StartSession();
-            } catch(Exception ex) {
-                _sessionLogger.LogError(Resources.Error_RHostFailedToStart, ex.Message);
-                throw;
-            }
-            _sessionLogger.LogInformation(Resources.Info_StartedRHost, Id, User.Name);
-
-            _process.BeginErrorReadLine();
-
-            var hostEnd = _pipe.ConnectHost(_process.Id);
-            _hostEnd = hostEnd;
-
-            ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
-            HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
-        }
-
-        private void StartSession() {
-            _process.Start();
-            _process.WaitForExit(250);
-            if (_process.HasExited && _process.ExitCode < 0) {
-                var message = ErrorCodeConverter.MessageFromErrorCode(_process.ExitCode);
-                if (!string.IsNullOrEmpty(message)) { 
-                    throw new Win32Exception(message);
+            lock (_stateLock) {
+                if (State != SessionState.Dormant) {
+                    throw new InvalidOperationException("Host process is already running");
                 }
-                throw new Win32Exception(_process.ExitCode);
+
+                _sessionLogger.LogInformation(Resources.Info_StartingRHost, Id, User.Name, rhostExePath, arguments);
+
+                try {
+                    _process.Start();
+                    _process.WaitForExit(250);
+                    if (_process.HasExited && _process.ExitCode < 0) {
+                        var message = ErrorCodeConverter.MessageFromErrorCode(_process.ExitCode);
+                        throw string.IsNullOrEmpty(message) ? new Win32Exception(_process.ExitCode) : new Win32Exception(message);
+                    }
+                } catch (Exception ex) {
+                    _sessionLogger.LogError(Resources.Error_RHostFailedToStart, ex.Message);
+                    throw;
+                }
+
+                _sessionLogger.LogInformation(Resources.Info_StartedRHost, Id, User.Name);
+
+                _process.BeginErrorReadLine();
+
+                var hostEnd = _pipe.ConnectHost(_process.Id);
+                _hostEnd = hostEnd;
+
+                ClientToHostWorker(_process.StandardInput.BaseStream, hostEnd).DoNotWait();
+                HostToClientWorker(_process.StandardOutput.BaseStream, hostEnd).DoNotWait();
+
+                State = SessionState.Running;
             }
         }
 
-        public void KillHost() {
+        private void KillHost() {
             _sessionLogger.LogTrace("Killing host process for session '{0}'.", Id);
 
             try {
@@ -202,6 +247,20 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
 
             _process = null;
+        }
+
+        public void Kill() {
+            State = SessionState.Terminated;
+            Task.Run(() => KillHost()).SilenceException<Exception>().DoNotWait();
+        }
+
+        public Task TerminateAsync(bool saveRData) {
+            var pipe = _hostEnd;
+            if (pipe != null) {
+                pipe.Write(saveRData ? _saveAndShutdownRequest : _discardAndShutdownRequest);
+            }
+
+            return _hostTcs.Task;
         }
 
         public IMessagePipeEnd ConnectClient() {

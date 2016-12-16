@@ -14,7 +14,7 @@ namespace Microsoft.R.Host.Client.Host {
         bool IsVerified { get; }
 
         Task<RHost> ConnectAsync(HostConnectionInfo connectionInfo, CancellationToken cancellationToken = default(CancellationToken));
-        Task TerminateSessionAsync(string name, CancellationToken cancellationToken = default(CancellationToken));
+        Task TerminateSessionAsync(string name, bool isGraceful, bool saveRData, CancellationToken cancellationToken = default(CancellationToken));
         Task<string> HandleUrlAsync(string url, CancellationToken cancellationToken = default(CancellationToken));
         Task<T> GetHostInformationAsync<T>(CancellationToken cancellationToken = default(CancellationToken));
         Task DeleteProfileAsync(CancellationToken cancellationToken = default(CancellationToken));

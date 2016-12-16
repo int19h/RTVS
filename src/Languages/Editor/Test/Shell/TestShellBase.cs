@@ -20,6 +20,7 @@ namespace Microsoft.Languages.Editor.Test.Shell {
             MainThread = Thread.CurrentThread;
             FileDialog = new TestFileDialog();
             ProgressDialog = new TestProgressDialog();
+            TaskDialogs = new TestTaskDialogProvider();
         }
 
         public void ShowErrorMessage(string msg) { }
@@ -90,6 +91,7 @@ namespace Microsoft.Languages.Editor.Test.Shell {
         public virtual ICoreServices Services => TestCoreServices.CreateReal();
         public IProgressDialog ProgressDialog { get; }
         public IFileDialog FileDialog { get; }
+        public ITaskDialogProvider TaskDialogs { get; }
         #endregion
     }
 }

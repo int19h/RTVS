@@ -92,6 +92,8 @@ namespace Microsoft.Common.Core.Shell {
         /// </summary>
         IProgressDialog ProgressDialog { get; }
 
+        ITaskDialogProvider TaskDialogs { get; }
+
         /// <summary>
         /// Application core services
         /// </summary>

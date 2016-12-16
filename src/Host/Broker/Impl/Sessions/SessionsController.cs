@@ -30,9 +30,9 @@ namespace Microsoft.R.Host.Broker.Sessions {
         public Task<IEnumerable<SessionInfo>> GetAsync() => Task.FromResult(_sessionManager.GetSessions(User.Identity).Select(s => s.Info));
 
         [HttpPut("{id}")]
-        public Task<IActionResult> PutAsync(string id, [FromBody] SessionCreateRequest request) {
+        public IActionResult PutAsync(string id, [FromBody] SessionCreateRequest request) {
             if (!_interpManager.Interpreters.Any()) {
-                return Task.FromResult<IActionResult>(new ApiErrorResult(BrokerApiError.NoRInterpreters));
+                return new ApiErrorResult(BrokerApiError.NoRInterpreters);
             }
 
             string profilePath = User.FindFirst(Claims.RUserProfileDir)?.Value;
@@ -42,34 +42,40 @@ namespace Microsoft.R.Host.Broker.Sessions {
             if (!string.IsNullOrEmpty(request.InterpreterId)) {
                 interp = _interpManager.Interpreters.FirstOrDefault(ip => ip.Id == request.InterpreterId);
                 if (interp == null) {
-                    return Task.FromResult<IActionResult>(new ApiErrorResult(BrokerApiError.InterpreterNotFound));
+                    return new ApiErrorResult(BrokerApiError.InterpreterNotFound);
                 }
             } else {
                 interp = _interpManager.Interpreters.First();
             }
 
             try {
-                var session = _sessionManager.CreateSession(User.Identity, id, interp, password, profilePath, request.CommandLineArguments);
-                return Task.FromResult<IActionResult>(new ObjectResult(session.Info));
+                Session session;
+                if (_sessionManager.TryCreateSession(request.ReplaceExisting, User.Identity, id, interp, password, profilePath, request.CommandLineArguments, request.IsTransient, out session)) {
+                    return new ObjectResult(session.Info);
+                } else {
+                    return new ApiErrorResult(BrokerApiError.SessionAlreadyExists);
+                }
             } catch (Exception ex) {
-                return Task.FromResult<IActionResult>(new ApiErrorResult(BrokerApiError.UnableToStartRHost, ex.Message));
+                return new ApiErrorResult(BrokerApiError.UnableToStartRHost, ex.Message);
             }
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(string id) {
+        public async Task<IActionResult> Delete(string id, [FromQuery] bool isGraceful = false, [FromQuery] bool saveRData = false) {
             var session = _sessionManager.GetSession(User.Identity, id);
             if (session == null) {
                 return NotFound();
             }
 
             try {
-                session.KillHost();
+                if (isGraceful) {
+                    await session.TerminateAsync(saveRData);
+                } else {
+                    session.Kill();
+                }
             } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
                 return new ApiErrorResult(BrokerApiError.UnableToTerminateRHost, ex.Message);
-            } finally {
-                session.State = SessionState.Terminated;
-            }
+            } 
 
             return Ok();
         }

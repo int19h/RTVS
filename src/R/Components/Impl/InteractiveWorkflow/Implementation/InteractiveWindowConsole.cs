@@ -36,5 +36,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             var result = await _workflow.Shell.ShowMessageAsync(text, MessageButtons.YesNo, cancellationToken);
             return result == MessageButtons.Yes;
         }
+
+        public ITaskDialogProvider TaskDialogs => _workflow.Shell.TaskDialogs;
     }
 }

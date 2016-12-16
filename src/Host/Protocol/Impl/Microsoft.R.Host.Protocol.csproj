@@ -58,6 +58,7 @@
     <Compile Include="RUserProfile\RUserProfileServiceRequest.cs" />
     <Compile Include="RUserProfile\RUserProfileServiceResponse.cs" />
     <Compile Include="SecureStringJsonConverter.cs" />
+    <Compile Include="SessionTerminateRequest.cs" />
     <Compile Include="SessionCreateRequest.cs" />
     <Compile Include="SessionInfo.cs" />
     <Compile Include="SessionState.cs" />
