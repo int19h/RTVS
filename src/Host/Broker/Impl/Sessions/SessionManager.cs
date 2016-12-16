@@ -67,8 +67,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                     var sessions = userSessions.ToArray();
                     foreach (var session in sessions) {
                         userSessions.Remove(session);
-                        Task.Run(() => session.KillHost()).SilenceException<Exception>().DoNotWait();
-                        session.State = SessionState.Terminated;
+                        session.Kill();
                     }
                 }
                 _blockedUsers.Add(user.Name);
@@ -111,7 +110,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        public Session CreateSession(IIdentity user, string id, Interpreter interpreter, SecureString password, string profilePath, string commandLineArguments) {
+        public Session CreateSession(IIdentity user, string id, Interpreter interpreter, SecureString password, string profilePath, string commandLineArguments, bool isTransient) {
             Session session;
 
             lock (_sessions) {
@@ -123,13 +122,11 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
                 var oldSessions = oldUserSessions.Where(s => s.Id == id).ToArray();
                 foreach (var oldSession in oldSessions) {
-                    oldUserSessions.Remove(oldSession);
-                    Task.Run(() => oldSession.KillHost()).SilenceException<Exception>().DoNotWait();
-                    oldSession.State = SessionState.Terminated;
+                    oldSession.Kill();
                 }
 
                 var userSessions = GetOrCreateSessionList(user);
-                session = new Session(this, user, id, interpreter, commandLineArguments, _sessionLogger, _messageLogger);
+                session = new Session(this, user, id, interpreter, commandLineArguments, isTransient, _sessionLogger, _messageLogger);
                 session.StateChanged += Session_StateChanged;
 
                 userSessions.Add(session);
