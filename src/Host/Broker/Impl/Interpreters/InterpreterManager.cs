@@ -14,8 +14,6 @@ using static System.FormattableString;
 
 namespace Microsoft.R.Host.Broker.Interpreters {
     public class InterpreterManager {
-        private const string _localId = "local";
-
         private readonly ROptions _options;
         private readonly ILogger _logger;
         private IFileSystem _fs;

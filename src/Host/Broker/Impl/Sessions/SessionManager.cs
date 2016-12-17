@@ -110,22 +110,33 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
         }
 
-        public Session CreateSession(IIdentity user, string id, Interpreter interpreter, SecureString password, string profilePath, string commandLineArguments, bool isTransient) {
-            Session session;
-
+        public bool TryCreateSession(
+            bool replaceExisting,
+            IIdentity user,
+            string id,
+            Interpreter interpreter,
+            SecureString password,
+            string profilePath,
+            string commandLineArguments,
+            bool isTransient,
+            out Session session
+        ) {
             lock (_sessions) {
                 if (_blockedUsers.Contains(user.Name)) {
                     throw new InvalidOperationException(Resources.Error_BlockedByProfileDeletion.FormatInvariant(user.Name));
                 }
 
-                var oldUserSessions = GetOrCreateSessionList(user);
+                var userSessions = GetOrCreateSessionList(user);
 
-                var oldSessions = oldUserSessions.Where(s => s.Id == id).ToArray();
-                foreach (var oldSession in oldSessions) {
-                    oldSession.Kill();
+                session = userSessions.SingleOrDefault(s => s.Id == id);
+                if (session != null) {
+                    if (replaceExisting) {
+                        session.Kill();
+                    } else {
+                        return false;
+                    }
                 }
 
-                var userSessions = GetOrCreateSessionList(user);
                 session = new Session(this, user, id, interpreter, commandLineArguments, isTransient, _sessionLogger, _messageLogger);
                 session.StateChanged += Session_StateChanged;
 
@@ -137,8 +148,7 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 profilePath,
                 _loggingOptions.LogHostOutput ? _hostOutputLogger : null,
                 _loggingOptions.LogPackets || _loggingOptions.LogHostOutput ? LogVerbosity.Traffic : LogVerbosity.Minimal);
-
-            return session;
+            return true;
         }
 
         private void Session_StateChanged(object sender, SessionStateChangedEventArgs e) {

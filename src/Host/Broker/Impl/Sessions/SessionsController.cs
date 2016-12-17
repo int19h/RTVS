@@ -49,22 +49,30 @@ namespace Microsoft.R.Host.Broker.Sessions {
             }
 
             try {
-                var session = _sessionManager.CreateSession(User.Identity, id, interp, password, profilePath, request.CommandLineArguments, request.IsTransient);
-                return new ObjectResult(session.Info);
+                Session session;
+                if (_sessionManager.TryCreateSession(request.ReplaceExisting, User.Identity, id, interp, password, profilePath, request.CommandLineArguments, request.IsTransient, out session)) {
+                    return new ObjectResult(session.Info);
+                } else {
+                    return new ApiErrorResult(BrokerApiError.SessionAlreadyExists);
+                }
             } catch (Exception ex) {
                 return new ApiErrorResult(BrokerApiError.UnableToStartRHost, ex.Message);
             }
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(string id) {
+        public async Task<IActionResult> Delete(string id, [FromBody] SessionTerminateRequest request) {
             var session = _sessionManager.GetSession(User.Identity, id);
             if (session == null) {
                 return NotFound();
             }
 
             try {
-                session.Kill();
+                if (request.IsGraceful) {
+                    await session.TerminateAsync(request.SaveRData);
+                } else {
+                    session.Kill();
+                }
             } catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException) {
                 return new ApiErrorResult(BrokerApiError.UnableToTerminateRHost, ex.Message);
             } 

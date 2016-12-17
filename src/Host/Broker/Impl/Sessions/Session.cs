@@ -98,7 +98,16 @@ namespace Microsoft.R.Host.Broker.Sessions {
 
         }
 
-        internal Session(SessionManager manager, IIdentity user, string id, Interpreter interpreter, string commandLineArguments, bool isTransient, ILogger sessionLogger, ILogger messageLogger) {
+        internal Session(
+            SessionManager manager,
+            IIdentity user,
+            string id,
+            Interpreter interpreter,
+            string commandLineArguments,
+            bool isTransient,
+            ILogger sessionLogger,
+            ILogger messageLogger
+        ) {
             Manager = manager;
             Interpreter = interpreter;
             User = user;

@@ -3,6 +3,8 @@
 
 namespace Microsoft.R.Host.Protocol {
     public struct SessionCreateRequest {
+        public bool ReplaceExisting { get; set; }
+
         public string InterpreterId { get; set; }
 
         public string CommandLineArguments { get; set; }

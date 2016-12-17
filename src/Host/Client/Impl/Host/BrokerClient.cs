@@ -148,13 +148,16 @@ namespace Microsoft.R.Host.Client.Host {
             return sessions.Any(s => s.Id == name);
         }
 
-        private async Task CreateBrokerSessionAsync(string name, bool useRCommandLineArguments, CancellationToken cancellationToken) {
-            var rCommandLineArguments = useRCommandLineArguments && _rCommandLineArguments != null ? _rCommandLineArguments : null;
+        private async Task CreateBrokerSessionAsync(bool replaceExisting, string name, bool useRCommandLineArguments, bool isTransient, CancellationToken cancellationToken) {
+            rCommandLineArguments = rCommandLineArguments ?? string.Empty;
+
             var sessions = new SessionsWebService(HttpClient, _credentials);
             try {
                 await sessions.PutAsync(name, new SessionCreateRequest {
+                    ReplaceExisting = replaceExisting,
                     InterpreterId = _interpreterId,
                     CommandLineArguments = rCommandLineArguments,
+                    IsTransient = isTransient,
                 }, cancellationToken);
             } catch (BrokerApiErrorException apiex) {
                 throw new RHostDisconnectedException(MessageFromBrokerApiException(apiex), apiex);

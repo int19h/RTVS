@@ -20,7 +20,7 @@ namespace Microsoft.R.Host.Protocol {
         /// or attempt to save session state is required.
         /// </para>
         /// </remarks>
-        public bool IsTransient { get; set; }
+        public bool IsTransient { get; set; } = true;
 
         public SessionState State { get; set; }
     }
