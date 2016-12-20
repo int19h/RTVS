@@ -89,6 +89,12 @@
     <Compile Include="Services\CoreServices.cs" />
     <Compile Include="Shell\CoreShellExtensions.cs" />
     <Compile Include="Shell\IApplicationConstants.cs" />
+    <Compile Include="Shell\TaskDialogHyperlinkClickedEventArgs.cs" />
+    <Compile Include="Shell\TaskDialogProviderExtensions.cs" />
+    <Compile Include="Shell\ITaskDialogProvider.cs" />
+    <Compile Include="Shell\TaskDialogIcon.cs" />
+    <Compile Include="Shell\TaskDialogButton.cs" />
+    <Compile Include="Shell\ITaskDialog.cs" />
     <Compile Include="Shell\UIColorTheme.cs" />
     <Compile Include="Shell\IFileDialog.cs" />
     <Compile Include="Shell\IProgressDialog.cs" />

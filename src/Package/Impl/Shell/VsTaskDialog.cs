@@ -8,11 +8,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.Common.Core;
+using Microsoft.Common.Core.Shell;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 
 namespace Microsoft.VisualStudio.R.Package.Shell {
-    internal sealed class VsTaskDialog {
+    internal sealed class VsTaskDialog : ITaskDialog {
         private readonly IServiceProvider _provider;
         private readonly List<TaskDialogButton> _buttons;
         private readonly List<TaskDialogButton> _radioButtons;
@@ -22,123 +23,6 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
             _buttons = new List<TaskDialogButton>();
             _radioButtons = new List<TaskDialogButton>();
             UseCommandLinks = true;
-        }
-
-        public static VsTaskDialog ForException(
-            IServiceProvider provider,
-            Exception exception,
-            string message = null,
-            string issueTrackerUrl = null
-        ) {
-            string suffix = string.IsNullOrEmpty(issueTrackerUrl) ?
-                "Please press Ctrl+C to copy the contents of this dialog and report this error." :
-                "Please press Ctrl+C to copy the contents of this dialog and report this error to our <a href=\"issuetracker\">issue tracker</a>.";
-
-            if (string.IsNullOrEmpty(message)) {
-                message = suffix;
-            } else {
-                message += Environment.NewLine + Environment.NewLine + suffix;
-            }
-            
-            var td = new VsTaskDialog(provider) {
-                MainInstruction = "An unexpected error occurred",
-                Content = message,
-                EnableHyperlinks = true,
-                CollapsedControlText = "Show &details",
-                ExpandedControlText = "Hide &details",
-                ExpandedInformation = exception.ToString()
-            };
-            td.Buttons.Add(TaskDialogButton.Close);
-            if (!string.IsNullOrEmpty(issueTrackerUrl)) {
-                td.HyperlinkClicked += (s, e) => {
-                    if (e.Url == "issuetracker") {
-                        Process.Start(issueTrackerUrl);
-                    }
-                };
-            }
-            return td;
-        }
-
-        public static void CallWithRetry(
-            Action<int> action,
-            IServiceProvider provider,
-            string title,
-            string failedText,
-            string expandControlText,
-            string retryButtonText,
-            string cancelButtonText,
-            Func<Exception, bool> canRetry = null
-        ) {
-            for (int retryCount = 1; ; ++retryCount) {
-                try {
-                    action(retryCount);
-                    return;
-                } catch (Exception ex) {
-                    if (ex.IsCriticalException()) {
-                        throw;
-                    }
-                    if (canRetry != null && !canRetry(ex)) {
-                        throw;
-                    }
-
-                    var td = new VsTaskDialog(provider) {
-                        Title = title,
-                        MainInstruction = failedText,
-                        Content = ex.Message,
-                        CollapsedControlText = expandControlText,
-                        ExpandedControlText = expandControlText,
-                        ExpandedInformation = ex.ToString()
-                    };
-                    var retry = new TaskDialogButton(retryButtonText);
-                    td.Buttons.Add(retry);
-                    td.Buttons.Add(new TaskDialogButton(cancelButtonText));
-                    var button = td.ShowModal();
-                    if (button != retry) {
-                        throw new OperationCanceledException();
-                    }
-                }
-            }
-        }
-
-        public static T CallWithRetry<T>(
-            Func<int, T> func,
-            IServiceProvider provider,
-            string title,
-            string failedText,
-            string expandControlText,
-            string retryButtonText,
-            string cancelButtonText,
-            Func<Exception, bool> canRetry = null
-        ) {
-            for (int retryCount = 1; ; ++retryCount) {
-                try {
-                    return func(retryCount);
-                } catch (Exception ex) {
-                    if (ex.IsCriticalException()) {
-                        throw;
-                    }
-                    if (canRetry != null && !canRetry(ex)) {
-                        throw;
-                    }
-
-                    var td = new VsTaskDialog(provider) {
-                        Title = title,
-                        MainInstruction = failedText,
-                        Content = ex.Message,
-                        CollapsedControlText = expandControlText,
-                        ExpandedControlText = expandControlText,
-                        ExpandedInformation = ex.ToString()
-                    };
-                    var retry = new TaskDialogButton(retryButtonText);
-                    var cancel = new TaskDialogButton(cancelButtonText);
-                    td.Buttons.Add(retry);
-                    td.Buttons.Add(cancel);
-                    var button = td.ShowModal();
-                    if (button == cancel) {
-                        throw new OperationCanceledException();
-                    }
-                }
-            }
         }
 
         public TaskDialogButton ShowModal() {
@@ -237,7 +121,7 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
                 if (ExpandedByDefault) {
                     config.dwFlags |= NativeMethods.TASKDIALOG_FLAGS.TDF_EXPANDED_BY_DEFAULT;
                 }
-                if (SelectedVerified) {
+                if (IsVerified) {
                     config.dwFlags |= NativeMethods.TASKDIALOG_FLAGS.TDF_VERIFICATION_FLAG_CHECKED;
                 }
                 if (CanMinimize) {
@@ -257,7 +141,7 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
 
                 SelectedButton = GetButton(selectedButton, customButtons);
                 SelectedRadioButton = GetRadio(selectedRadioButton, _radioButtons);
-                SelectedVerified = verified;
+                IsVerified = verified;
             } finally {
                 uiShell.EnableModeless(1);
 
@@ -358,21 +242,13 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
         /// </summary>
         public event EventHandler<TaskDialogHyperlinkClickedEventArgs> HyperlinkClicked;
 
-        public List<TaskDialogButton> Buttons {
-            get {
-                return _buttons;
-            }
-        }
+        public ICollection<TaskDialogButton> Buttons => _buttons;
 
-        public List<TaskDialogButton> RadioButtons {
-            get {
-                return _radioButtons;
-            }
-        }
+        public ICollection<TaskDialogButton> RadioButtons => _radioButtons;
 
         public TaskDialogButton SelectedButton { get; set; }
         public TaskDialogButton SelectedRadioButton { get; set; }
-        public bool SelectedVerified { get; set; }
+        public bool IsVerified { get; set; }
 
 
         private static NativeMethods.TASKDIALOG_COMMON_BUTTON_FLAGS GetButtonFlag(TaskDialogButton button) {
@@ -621,52 +497,5 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
             [DllImport("user32.dll")]
             internal static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
         }
-    }
-
-    class TaskDialogButton {
-        public TaskDialogButton(string text) {
-            int i = text.IndexOfAny(Environment.NewLine.ToCharArray());
-            if (i < 0) {
-                Text = text;
-            } else {
-                Text = text.Remove(i);
-                Subtext = text.Substring(i).TrimStart();
-            }
-        }
-
-        public TaskDialogButton(string text, string subtext) {
-            Text = text;
-            Subtext = subtext;
-        }
-
-        public string Text { get; set; }
-        public string Subtext { get; set; }
-        public bool ElevationRequired { get; set; }
-
-        private TaskDialogButton() { }
-        public static readonly TaskDialogButton OK = new TaskDialogButton();
-        public static readonly TaskDialogButton Cancel = new TaskDialogButton();
-        public static readonly TaskDialogButton Yes = new TaskDialogButton();
-        public static readonly TaskDialogButton No = new TaskDialogButton();
-        public static readonly TaskDialogButton Retry = new TaskDialogButton();
-        public static readonly TaskDialogButton Close = new TaskDialogButton();
-    }
-
-    sealed class TaskDialogHyperlinkClickedEventArgs : EventArgs {
-        private readonly string _url;
-
-        public TaskDialogHyperlinkClickedEventArgs(string url) {
-            _url = url;
-        }
-
-        public string Url { get { return _url; } }
-    }
-
-    enum TaskDialogIcon {
-        None,
-        Error,
-        Warning,
-        Information,
-        Shield
     }
 }
