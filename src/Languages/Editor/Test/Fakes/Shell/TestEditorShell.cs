@@ -25,6 +25,7 @@ namespace Microsoft.Languages.Editor.Test.Fakes.Shell {
         public TestEditorShell(CompositionContainer container) {
             FileDialog = new TestFileDialog();
             ProgressDialog = new TestProgressDialog();
+            TaskDialogs = new TestTaskDialogProvider();
             _container = container;
         }
 
@@ -67,6 +68,7 @@ namespace Microsoft.Languages.Editor.Test.Fakes.Shell {
         public IApplicationConstants AppConstants => new TestAppConstants();
         public IProgressDialog ProgressDialog { get; }
         public IFileDialog FileDialog { get; }
+        public ITaskDialogProvider TaskDialogs { get; }
         public ICoreServices Services => TestCoreServices.CreateReal();
 
         #region IMainThread

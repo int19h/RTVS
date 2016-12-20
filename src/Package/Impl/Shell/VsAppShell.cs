@@ -59,6 +59,7 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
             _appConstants = new ApplicationConstants();
             ProgressDialog = new VsProgressDialog(this);
             FileDialog = new VsFileDialog(this);
+            TaskDialogs = new VsTaskDialogProvider();
 
             _coreServices = new CoreServices(_appConstants, telemetryService, new VsTaskService(), this, new SecurityService(this));
         }
@@ -454,5 +455,6 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
         public IApplicationConstants AppConstants => _appConstants;
         public IProgressDialog ProgressDialog { get; }
         public IFileDialog FileDialog { get; }
+        public ITaskDialogProvider TaskDialogs { get; }
     }
 }
