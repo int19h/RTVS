@@ -126,7 +126,7 @@ namespace Microsoft.R.Host.Client.Host {
                     }
                 }
 
-                await CreateBrokerSessionAsync(uniqueSessionName, connectionInfo.UseRHostCommandLineArguments, cancellationToken);
+                await CreateBrokerSessionAsync(true, uniqueSessionName, connectionInfo.UseRHostCommandLineArguments, connectionInfo.PreserveSessionData, cancellationToken);
                 var webSocket = await ConnectToBrokerAsync(uniqueSessionName, cancellationToken);
                 return CreateRHost(uniqueSessionName, connectionInfo.Callbacks, webSocket);
             } catch (HttpRequestException ex) {
@@ -149,7 +149,7 @@ namespace Microsoft.R.Host.Client.Host {
         }
 
         private async Task CreateBrokerSessionAsync(bool replaceExisting, string name, bool useRCommandLineArguments, bool isTransient, CancellationToken cancellationToken) {
-            rCommandLineArguments = rCommandLineArguments ?? string.Empty;
+            var rCommandLineArguments = useRCommandLineArguments && _rCommandLineArguments != null ? _rCommandLineArguments : null;
 
             var sessions = new SessionsWebService(HttpClient, _credentials);
             try {
