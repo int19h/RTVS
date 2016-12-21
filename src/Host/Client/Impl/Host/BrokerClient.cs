@@ -139,9 +139,7 @@ namespace Microsoft.R.Host.Client.Host {
                     taskDialog.Buttons.Add(forceButton);
                     taskDialog.Buttons.Add(TaskDialogButton.Cancel);
 
-                    await coreShell.SwitchToMainThreadAsync(cancellationToken);
-                    var response = taskDialog.ShowModal();
-                    await 
+                    var response = await taskDialog.ShowModalAsync();
 
                     if (response == TaskDialogButton.Cancel) {
                         throw new OperationCanceledException();

@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Microsoft.Common.Core;
 using Microsoft.Common.Core.Shell;
 using Microsoft.VisualStudio;
@@ -15,14 +16,23 @@ using Microsoft.VisualStudio.Shell.Interop;
 namespace Microsoft.VisualStudio.R.Package.Shell {
     internal sealed class VsTaskDialog : ITaskDialog {
         private readonly IServiceProvider _provider;
+        private readonly IApplicationShell _shell;
+
         private readonly List<TaskDialogButton> _buttons;
         private readonly List<TaskDialogButton> _radioButtons;
 
-        public VsTaskDialog(IServiceProvider provider) {
+        public VsTaskDialog(IServiceProvider provider, IApplicationShell shell) {
             _provider = provider;
+            _shell = shell;
+
             _buttons = new List<TaskDialogButton>();
             _radioButtons = new List<TaskDialogButton>();
             UseCommandLinks = true;
+        }
+
+        public async Task<TaskDialogButton> ShowModalAsync() {
+            await _shell.SwitchToMainThreadAsync();
+            return ShowModal();
         }
 
         public TaskDialogButton ShowModal() {

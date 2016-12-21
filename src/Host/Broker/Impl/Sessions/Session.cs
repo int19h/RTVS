@@ -194,11 +194,13 @@ namespace Microsoft.R.Host.Broker.Sessions {
                 outputLogger?.LogTrace(Resources.Trace_ErrorDataReceived, process.Id, e.Data);
             };
 
-            _process.Exited += delegate {
+            _process.Exited += (sender, e) => {
                 _hostEnd?.Dispose();
                 _hostEnd = null;
                 State = SessionState.Terminated;
-                _hostTcs.SetResult(_process.ExitCode);
+
+                var process = (Process)sender;
+                _hostTcs.SetResult(process.ExitCode);
             };
 
             lock (_stateLock) {

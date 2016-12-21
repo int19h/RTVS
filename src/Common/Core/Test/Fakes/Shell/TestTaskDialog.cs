@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 using Microsoft.Common.Core.Shell;
 
 namespace Microsoft.Common.Core.Test.Fakes.Shell {
@@ -35,5 +36,7 @@ namespace Microsoft.Common.Core.Test.Fakes.Shell {
         public event EventHandler<TaskDialogHyperlinkClickedEventArgs> HyperlinkClicked;
 
         public TaskDialogButton ShowModal() => SelectedButton;
+
+        public Task<TaskDialogButton> ShowModalAsync() => Task.FromResult(SelectedButton);
     }
 }

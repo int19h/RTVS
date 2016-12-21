@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Microsoft.Common.Core.Shell {
     public interface ITaskDialog {
@@ -35,6 +36,7 @@ namespace Microsoft.Common.Core.Shell {
         bool IsVerified { get; set; }
 
         TaskDialogButton ShowModal();
+        Task<TaskDialogButton> ShowModalAsync();
 
         /// <summary>
         /// Raised when a hyperlink in the dialog is clicked. If no event

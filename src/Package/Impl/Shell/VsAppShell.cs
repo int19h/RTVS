@@ -59,7 +59,7 @@ namespace Microsoft.VisualStudio.R.Package.Shell {
             _appConstants = new ApplicationConstants();
             ProgressDialog = new VsProgressDialog(this);
             FileDialog = new VsFileDialog(this);
-            TaskDialogs = new VsTaskDialogProvider();
+            TaskDialogs = new VsTaskDialogProvider(this);
 
             _coreServices = new CoreServices(_appConstants, telemetryService, new VsTaskService(), this, new SecurityService(this));
         }

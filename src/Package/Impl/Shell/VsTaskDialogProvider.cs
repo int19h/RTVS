@@ -6,6 +6,12 @@ using Microsoft.VisualStudio.R.Packages.R;
 
 namespace Microsoft.VisualStudio.R.Package.Shell {
     internal class VsTaskDialogProvider : ITaskDialogProvider {
-        public ITaskDialog CreateTaskDialog() => new VsTaskDialog(RPackage.Current);
+        private readonly IApplicationShell _shell;
+
+        public VsTaskDialogProvider(IApplicationShell shell) {
+            _shell = shell;
+        }
+
+        public ITaskDialog CreateTaskDialog() => new VsTaskDialog(RPackage.Current, _shell);
     }           
 }
