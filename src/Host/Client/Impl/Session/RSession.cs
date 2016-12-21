@@ -339,7 +339,7 @@ namespace Microsoft.R.Host.Client.Session {
 
             // If it didn't work, tell the broker to forcibly terminate the host process. 
             try {
-                brokerClient.TerminateSessionAsync(host.Name).Wait(10000);
+                brokerClient.TerminateSessionAsync(host.Name, isGraceful: false, saveRData: false).Wait(10000);
             } catch (Exception) { }
 
             if (hostRunTask.IsCompleted) {

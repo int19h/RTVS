@@ -34,8 +34,8 @@ namespace Microsoft.R.Host.Client.Host {
         public Task<RHost> ConnectAsync(HostConnectionInfo connectionInfo, CancellationToken cancellationToken = default(CancellationToken)) 
             => _broker.ConnectAsync(connectionInfo, cancellationToken);
 
-        public Task TerminateSessionAsync(string name, CancellationToken cancellationToken = default(CancellationToken))
-            => _broker.TerminateSessionAsync(name, cancellationToken);
+        public Task TerminateSessionAsync(string name, bool isGraceful, bool saveRData, CancellationToken cancellationToken = default(CancellationToken))
+            => _broker.TerminateSessionAsync(name, isGraceful, saveRData, cancellationToken);
 
         public Task<string> HandleUrlAsync(string url, CancellationToken cancellationToken) => _broker.HandleUrlAsync(url, cancellationToken);
 

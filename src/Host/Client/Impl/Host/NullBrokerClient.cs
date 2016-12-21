@@ -22,7 +22,7 @@ namespace Microsoft.R.Host.Client.Host {
 
         public Task<RHost> ConnectAsync(HostConnectionInfo connectionInfo, CancellationToken cancellationToken = default(CancellationToken)) => Result;
 
-        public Task TerminateSessionAsync(string name, CancellationToken cancellationToken = new CancellationToken()) => Result;
+        public Task TerminateSessionAsync(string name, bool isGraceful, bool saveRData, CancellationToken cancellationToken = new CancellationToken()) => Result;
 
         public void Dispose() { }
 

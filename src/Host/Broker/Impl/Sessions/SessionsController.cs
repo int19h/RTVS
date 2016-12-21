@@ -61,15 +61,15 @@ namespace Microsoft.R.Host.Broker.Sessions {
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(string id, [FromBody] SessionTerminateRequest request) {
+        public async Task<IActionResult> Delete(string id, [FromQuery] bool isGraceful = false, [FromQuery] bool saveRData = false) {
             var session = _sessionManager.GetSession(User.Identity, id);
             if (session == null) {
                 return NotFound();
             }
 
             try {
-                if (request.IsGraceful) {
-                    await session.TerminateAsync(request.SaveRData);
+                if (isGraceful) {
+                    await session.TerminateAsync(saveRData);
                 } else {
                     session.Kill();
                 }

@@ -20,6 +20,7 @@ using Microsoft.Common.Core.Disposables;
 using Microsoft.Common.Core.Json;
 using Microsoft.Common.Core.Logging;
 using Microsoft.Common.Core.Net;
+using Microsoft.Common.Core.Shell;
 using Microsoft.R.Host.Client.BrokerServices;
 using Microsoft.R.Host.Protocol;
 
@@ -116,13 +117,36 @@ namespace Microsoft.R.Host.Client.Host {
 
             var uniqueSessionName = $"{connectionInfo.Name}_{ConnectionInfo}";
             try {
-                var sessionExists = connectionInfo.PreserveSessionData && await IsSessionRunningAsync(uniqueSessionName, cancellationToken);
-                if (sessionExists) {
-                    var terminateRDataSave = await _console.PromptYesNoAsync(Resources.AbortRDataAutosave, cancellationToken);
-                    if (!terminateRDataSave) {
-                        while (await IsSessionRunningAsync(uniqueSessionName, cancellationToken)) {
-                            await Task.Delay(500, cancellationToken);
-                        }
+                while (connectionInfo.PreserveSessionData && await IsSessionRunningAsync(uniqueSessionName, cancellationToken)) {
+                    if (_console.TaskDialogs == null) {
+                        throw new OperationCanceledException();
+                    }
+
+                    var taskDialog = _console.TaskDialogs.CreateTaskDialog();
+                    taskDialog.AllowCancellation = true;
+                    taskDialog.MainIcon = TaskDialogIcon.Warning;
+                    taskDialog.MainInstruction = "Session already exists.";
+                    taskDialog.Content = "An active session for your user account already exists on the remote machine. It must be shut down first, in order to " +
+                        "connect from this machine and establish a new session.";
+
+                    var graceButton = new TaskDialogButton("Shut down the session and save state",
+                        "The session will be asked to gracefully shut itself down and save its current R workspace. This operation may take some time to complete. " +
+                        "When you connect, you will be prompted to reload the workspace.");
+                    var forceButton = new TaskDialogButton("Forcibly terminate the session",
+                        "The session will be forcibly terminated immediately. All data in the R workspace associated with the session will be lost.");
+
+                    taskDialog.Buttons.Add(graceButton);
+                    taskDialog.Buttons.Add(forceButton);
+                    taskDialog.Buttons.Add(TaskDialogButton.Cancel);
+
+                    var response = taskDialog.ShowModal();
+
+                    if (response == TaskDialogButton.Cancel) {
+                        throw new OperationCanceledException();
+                    } else if (response == graceButton) {
+                        await TerminateSessionAsync(uniqueSessionName, isGraceful: true, saveRData: true, cancellationToken: cancellationToken);
+                    } else if (response == forceButton) {
+                        break;
                     }
                 }
 
@@ -134,9 +158,9 @@ namespace Microsoft.R.Host.Client.Host {
             }
         }
 
-        public Task TerminateSessionAsync(string name, CancellationToken cancellationToken = default(CancellationToken)) {
+        public Task TerminateSessionAsync(string name, bool isGraceful, bool saveRData, CancellationToken cancellationToken = default(CancellationToken)) {
             var sessionsService = new SessionsWebService(HttpClient, _credentials);
-            return sessionsService.DeleteAsync(name, cancellationToken);
+            return sessionsService.DeleteAsync(name, isGraceful, saveRData, cancellationToken);
         }
 
         protected virtual Task<Exception> HandleHttpRequestExceptionAsync(HttpRequestException exception)
@@ -201,7 +225,7 @@ namespace Microsoft.R.Host.Client.Host {
             var transport = new WebSocketMessageTransport(socket);
             return new RHost(name, callbacks, transport, Log);
         }
-        
+
         private string MessageFromBrokerApiException(BrokerApiErrorException ex) {
             switch (ex.ApiError) {
                 case BrokerApiError.NoRInterpreters:
@@ -226,6 +250,6 @@ namespace Microsoft.R.Host.Client.Host {
             return ex.ApiError.ToString();
         }
 
-        public virtual Task<string> HandleUrlAsync(string url, CancellationToken cancellationToken)  => Task.FromResult(url);
+        public virtual Task<string> HandleUrlAsync(string url, CancellationToken cancellationToken) => Task.FromResult(url);
     }
 }

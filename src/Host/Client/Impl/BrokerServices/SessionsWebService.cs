@@ -11,7 +11,8 @@ using Microsoft.R.Host.Protocol;
 namespace Microsoft.R.Host.Client.BrokerServices {
     public class SessionsWebService : WebService, ISessionsWebService {
         private static readonly Uri GetUri = new Uri("/sessions", UriKind.Relative);
-        private static readonly UriTemplate SessionUri = new UriTemplate("/sessions/{name}");
+        private static readonly UriTemplate SessionUri = new UriTemplate("/sessions/{id}");
+        private static readonly UriTemplate SessionDeleteUri = new UriTemplate("/sessions/{id}?is_graceful={is_graceful}&save_rdata={save_rdata}");
 
         public SessionsWebService(HttpClient httpClient, ICredentialsDecorator credentialsDecorator)
             : base(httpClient, credentialsDecorator) {
@@ -23,7 +24,7 @@ namespace Microsoft.R.Host.Client.BrokerServices {
         public Task<SessionInfo> PutAsync(string id, SessionCreateRequest request, CancellationToken cancellationToken = default(CancellationToken)) =>
             HttpPutAsync<SessionCreateRequest, SessionInfo>(SessionUri, request, cancellationToken, id);
 
-        public Task DeleteAsync(string id, CancellationToken cancellationToken = default(CancellationToken)) =>
-            HttpDeleteAsync(SessionUri, cancellationToken, id);
+        public Task DeleteAsync(string id, bool isGraceful, bool saveRData, CancellationToken cancellationToken = default(CancellationToken)) =>
+            HttpDeleteAsync(SessionUri, cancellationToken, id, isGraceful, saveRData);
     }
 }
