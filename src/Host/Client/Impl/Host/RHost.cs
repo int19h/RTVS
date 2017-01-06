@@ -354,8 +354,11 @@ namespace Microsoft.R.Host.Client {
             }
         }
 
-        public Task RequestShutdownAsync(bool saveRData) =>
-            NotifyAsync("!Shutdown", _cts.Token, saveRData);
+        public Task RequestShutdownAsync() =>
+            NotifyAsync("!Shutdown", _cts.Token);
+
+        public Task RequestShutdownAsync(string rdata) =>
+            NotifyAsync("!Shutdown", _cts.Token, rdata);
 
         public async Task DisconnectAsync() {
             if (_runTask == null) {

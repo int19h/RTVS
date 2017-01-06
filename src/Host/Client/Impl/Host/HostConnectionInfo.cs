@@ -9,14 +9,16 @@ namespace Microsoft.R.Host.Client.Host {
         public IRCallbacks Callbacks { get; }
         public int Timeout { get; }
         public bool UseRHostCommandLineArguments { get; }
-        public bool PreserveSessionData { get; }
 
-        public HostConnectionInfo(string name, IRCallbacks callbacks, bool useRHostCommandLineArguments = false, int timeout = 3000, bool preserveSessionData = false) {
+        /// <seealso cref="IRSession.IsTransient"/>
+        public bool IsTransient { get; }
+
+        public HostConnectionInfo(string name, bool isTransient, IRCallbacks callbacks, bool useRHostCommandLineArguments = false, int timeout = 3000) {
             Name = name;
             Callbacks = callbacks ?? _nullCallbacks;
             UseRHostCommandLineArguments = useRHostCommandLineArguments;
             Timeout = timeout;
-            PreserveSessionData = preserveSessionData;
+            IsTransient = isTransient;
         }
     }
 }

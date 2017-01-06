@@ -65,7 +65,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             Shell = coreShell;
             RSessions = new RSessionProvider(coreShell.Services, new InteractiveWindowConsole(this));
 
-            RSession = RSessions.GetOrCreate(SessionNames.InteractiveWindow);
+            RSession = RSessions.GetOrCreate(SessionNames.InteractiveWindow, isTransient: false);
             Connections = connectionsProvider.CreateConnectionManager(this);
 
             History = historyProvider.CreateRHistory(this);

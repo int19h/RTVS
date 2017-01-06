@@ -58,9 +58,9 @@ namespace Microsoft.R.Host.Client.Session {
             _services = services;
         }
 
-        public IRSession GetOrCreate(string sessionId) {
+        public IRSession GetOrCreate(string sessionId, bool isTransient = true) {
             _disposeToken.ThrowIfDisposed();
-            return _sessions.GetOrAdd(sessionId, CreateRSession);
+            return _sessions.GetOrAdd(sessionId, id => CreateRSession(id, isTransient));
         }
 
         public IEnumerable<IRSession> GetSessions() {
@@ -85,8 +85,8 @@ namespace Microsoft.R.Host.Client.Session {
             Broker.Dispose();
         }
 
-        private RSession CreateRSession(string sessionId) {
-            var session = new RSession(Interlocked.Increment(ref _sessionCounter), sessionId, Broker, _connectArwl.CreateExclusiveReaderLock(), () => DisposeSession(sessionId));
+        private RSession CreateRSession(string sessionId, bool isTransient) {
+            var session = new RSession(Interlocked.Increment(ref _sessionCounter), sessionId, isTransient, Broker, _connectArwl.CreateExclusiveReaderLock(), () => DisposeSession(sessionId));
             session.Connected += RSessionOnConnected;
             return session;
         }
@@ -135,7 +135,7 @@ namespace Microsoft.R.Host.Client.Session {
 
         private static async Task TestBrokerConnectionWithRHost(IBrokerClient brokerClient, CancellationToken cancellationToken) {
             var callbacks = new NullRCallbacks();
-            var connectionInfo = new HostConnectionInfo(nameof(TestBrokerConnectionAsync), callbacks, useRHostCommandLineArguments:true);
+            var connectionInfo = new HostConnectionInfo(nameof(TestBrokerConnectionAsync), true, callbacks, useRHostCommandLineArguments:true);
             var rhost = await brokerClient.ConnectAsync(connectionInfo, cancellationToken);
             try {
                 var rhostRunTask = rhost.Run(cancellationToken);

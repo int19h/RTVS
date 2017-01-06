@@ -19,18 +19,22 @@ using Microsoft.R.Host.Broker.Startup;
 using Microsoft.R.Host.Protocol;
 using static System.FormattableString;
 using System.Threading;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace Microsoft.R.Host.Broker.Sessions {
     public class Session {
         private const string RHostExe = "Microsoft.R.Host.exe";
+        private const string AutosaveRData = "~/.Autosave.RData";
 
         private static readonly byte[] _discardAndShutdownRequest = CreateShutdownRequest(false);
-        private static readonly byte[] _saveAndShutdownRequest = CreateShutdownRequest(false);
+        private static readonly byte[] _saveAndShutdownRequest = CreateShutdownRequest(true);
 
         private readonly ILogger _sessionLogger;
         private Process _process;
         private MessagePipe _pipe;
         private volatile IMessagePipeEnd _hostEnd;
+        private readonly SemaphoreSlim _hostStdinLock = new SemaphoreSlim(1, 1);
 
         public SessionManager Manager { get; }
 
@@ -82,15 +86,15 @@ namespace Microsoft.R.Host.Broker.Sessions {
         };
 
         private static byte[] CreateShutdownRequest(bool saveRData) {
+            var args = new string[] { saveRData ? AutosaveRData : "" };
+            var json = JsonConvert.SerializeObject(args);
+
             using (var stream = new MemoryStream())
             using (var writer = new BinaryWriter(stream, Encoding.UTF8)) {
                 // Use the largest non-reserved ID, to avoid clashing with client messages.
                 writer.Write(ulong.MaxValue - 1);
                 writer.Write(0ul);
-
-                var json = (saveRData ? "[true]" : "[false]").ToCharArray();
-                writer.Write(json, 0, json.Length);
-
+                writer.Write(Invariant($"!Shutdown\0{json}\0").ToCharArray());
                 writer.Flush();
                 stream.Flush();
                 return stream.ToArray();
@@ -254,13 +258,16 @@ namespace Microsoft.R.Host.Broker.Sessions {
             Task.Run(() => KillHost()).SilenceException<Exception>().DoNotWait();
         }
 
-        public Task TerminateAsync(bool saveRData) {
-            var pipe = _hostEnd;
-            if (pipe != null) {
-                pipe.Write(saveRData ? _saveAndShutdownRequest : _discardAndShutdownRequest);
+        public async Task TerminateAsync(bool saveRData) {
+            var stream = _process?.StandardInput?.BaseStream;
+            if (stream != null) {
+                try {
+                    await WriteMessageToHost(stream, saveRData ? _saveAndShutdownRequest : _discardAndShutdownRequest);
+                } catch (Exception ex) when (!ex.IsCriticalException()) {
+                }
             }
 
-            return _hostTcs.Task;
+            await _hostTcs.Task;
         }
 
         public IMessagePipeEnd ConnectClient() {
@@ -274,6 +281,18 @@ namespace Microsoft.R.Host.Broker.Sessions {
             return _pipe.ConnectClient();
         }
 
+        private async Task WriteMessageToHost(Stream stream, byte[] message) {
+            var sizeBuf = BitConverter.GetBytes(message.Length);
+            await _hostStdinLock.WaitAsync();
+            try {
+                await stream.WriteAsync(sizeBuf, 0, sizeBuf.Length);
+                await stream.WriteAsync(message, 0, message.Length);
+                await stream.FlushAsync();
+            } finally {
+                _hostStdinLock.Release();
+            }
+        }
+
         private async Task ClientToHostWorker(Stream stream, IMessagePipeEnd pipe) {
             using (stream) {
                 while (true) {
@@ -284,11 +303,8 @@ namespace Microsoft.R.Host.Broker.Sessions {
                         break;
                     }
 
-                    var sizeBuf = BitConverter.GetBytes(message.Length);
                     try {
-                        await stream.WriteAsync(sizeBuf, 0, sizeBuf.Length);
-                        await stream.WriteAsync(message, 0, message.Length);
-                        await stream.FlushAsync();
+                        await WriteMessageToHost(stream, message);
                     } catch (IOException) {
                         break;
                     }

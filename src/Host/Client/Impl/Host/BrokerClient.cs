@@ -117,40 +117,42 @@ namespace Microsoft.R.Host.Client.Host {
 
             var uniqueSessionName = $"{connectionInfo.Name}_{ConnectionInfo.ParametersId}";
             try {
-                while (connectionInfo.PreserveSessionData && await IsSessionRunningAsync(uniqueSessionName, cancellationToken)) {
-                    if (_console.TaskDialogs == null) {
-                        throw new OperationCanceledException();
-                    }
+                if (!connectionInfo.IsTransient) {
+                    while (await IsSessionRunningAsync(uniqueSessionName, cancellationToken)) {
+                        if (_console.TaskDialogs == null) {
+                            throw new OperationCanceledException();
+                        }
 
-                    var taskDialog = _console.TaskDialogs.CreateTaskDialog();
-                    taskDialog.AllowCancellation = true;
-                    taskDialog.MainIcon = TaskDialogIcon.Warning;
-                    taskDialog.MainInstruction = "Session already exists.";
-                    taskDialog.Content = "An active session for your user account already exists on the remote machine. It must be shut down first, in order to " +
-                        "connect from this machine and establish a new session.";
+                        var taskDialog = _console.TaskDialogs.CreateTaskDialog();
+                        taskDialog.AllowCancellation = true;
+                        taskDialog.MainIcon = TaskDialogIcon.Warning;
+                        taskDialog.MainInstruction = "Session already exists.";
+                        taskDialog.Content = "An active session for your user account already exists on the remote machine. It must be shut down first, in order to " +
+                            "connect from this machine and establish a new session.";
 
-                    var graceButton = new TaskDialogButton("Shut down the session and save state",
-                        "The session will be asked to gracefully shut itself down and save its current R workspace. This operation may take some time to complete. " +
-                        "When you connect, you will be prompted to reload the workspace.");
-                    var forceButton = new TaskDialogButton("Forcibly terminate the session",
-                        "The session will be forcibly terminated immediately. All data in the R workspace associated with the session will be lost.");
+                        var graceButton = new TaskDialogButton("Shut down the session and save state",
+                            "The session will be asked to gracefully shut itself down and save its current R workspace. This operation may take some time to complete. " +
+                            "When you connect, you will be prompted to reload the workspace.");
+                        var forceButton = new TaskDialogButton("Forcibly terminate the session",
+                            "The session will be forcibly terminated immediately. All data in the R workspace associated with the session will be lost.");
 
-                    taskDialog.Buttons.Add(graceButton);
-                    taskDialog.Buttons.Add(forceButton);
-                    taskDialog.Buttons.Add(TaskDialogButton.Cancel);
+                        taskDialog.Buttons.Add(graceButton);
+                        taskDialog.Buttons.Add(forceButton);
+                        taskDialog.Buttons.Add(TaskDialogButton.Cancel);
 
-                    var response = await taskDialog.ShowModalAsync();
+                        var response = await taskDialog.ShowModalAsync();
 
-                    if (response == TaskDialogButton.Cancel) {
-                        throw new OperationCanceledException();
-                    } else if (response == graceButton) {
-                        await TerminateSessionAsync(uniqueSessionName, isGraceful: true, saveRData: true, cancellationToken: cancellationToken);
-                    } else if (response == forceButton) {
-                        break;
+                        if (response == TaskDialogButton.Cancel) {
+                            throw new OperationCanceledException();
+                        } else if (response == graceButton) {
+                            await TerminateSessionAsync(uniqueSessionName, isGraceful: true, saveRData: true, cancellationToken: cancellationToken);
+                        } else if (response == forceButton) {
+                            break;
+                        }
                     }
                 }
 
-                await CreateBrokerSessionAsync(true, uniqueSessionName, connectionInfo.UseRHostCommandLineArguments, connectionInfo.PreserveSessionData, cancellationToken);
+                await CreateBrokerSessionAsync(true, uniqueSessionName, connectionInfo.UseRHostCommandLineArguments, connectionInfo.IsTransient, cancellationToken);
                 var webSocket = await ConnectToBrokerAsync(uniqueSessionName, cancellationToken);
                 return CreateRHost(uniqueSessionName, connectionInfo.Callbacks, webSocket);
             } catch (HttpRequestException ex) {

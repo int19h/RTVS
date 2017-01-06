@@ -68,6 +68,7 @@ namespace Microsoft.R.Host.Client.Session {
         public Task HostStarted => _hostStartedTcs.Task;
         public bool IsRemote => BrokerClient.IsRemote;
         public bool RestartOnBrokerSwitch { get; set; }
+        public bool IsTransient { get; }
 
         internal IBrokerClient BrokerClient { get; }
         internal bool IsDisposed => _disposeToken.IsDisposed;
@@ -82,11 +83,17 @@ namespace Microsoft.R.Host.Client.Session {
             CanceledBeginInteractionTask = TaskUtilities.CreateCanceled<IRSessionInteraction>(new RHostDisconnectedException());
         }
 
-        public RSession(int id, string name, IBrokerClient brokerClient, IExclusiveReaderLock initializationLock, Action onDispose) {
+        public RSession(int id, string name, IBrokerClient brokerClient, IExclusiveReaderLock initializationLock, Action onDispose):
+            this(id, name, true, brokerClient, initializationLock, onDispose) {
+        }
+
+        public RSession(int id, string name, bool isTransient, IBrokerClient brokerClient, IExclusiveReaderLock initializationLock, Action onDispose) {
             Id = id;
             Name = name;
+            IsTransient = isTransient;
             BrokerClient = brokerClient;
             _onDispose = onDispose;
+
             _disposeToken = DisposeToken.Create<RSession>();
             _disableMutatingOnReadConsole = new CountdownDisposable(() => {
                 if (!_delayedMutatedOnReadConsole) {
@@ -246,7 +253,7 @@ namespace Microsoft.R.Host.Client.Session {
             _startupInfo = startupInfo ?? new RHostStartupInfo();
             RHost host;
             try {
-                var connectionInfo = new HostConnectionInfo(Name, this, _startupInfo.UseRHostCommandLineArguments, timeout);
+                var connectionInfo = new HostConnectionInfo(Name, IsTransient, this, _startupInfo.UseRHostCommandLineArguments, timeout);
                 host = await BrokerClient.ConnectAsync(connectionInfo, cancellationToken);
             } catch (OperationCanceledException ex) {
                 _hostStartedTcs.TrySetCanceled(ex);
@@ -297,7 +304,7 @@ namespace Microsoft.R.Host.Client.Session {
                     await _hostRunTask;
                 }
 
-                var connectionInfo = new HostConnectionInfo(Name, this, _startupInfo.UseRHostCommandLineArguments);
+                var connectionInfo = new HostConnectionInfo(Name, IsTransient, this, _startupInfo.UseRHostCommandLineArguments);
                 host = await BrokerClient.ConnectAsync(connectionInfo, cancellationToken);
 
                 await StartHostAsyncBackground(host, cancellationToken);
@@ -736,7 +743,7 @@ if (rtvs:::version != {rtvsPackageVersion}) {{
 
             public async Task ConnectToNewBrokerAsync(CancellationToken cancellationToken) {
                 using (_session._disposeToken.Link(ref cancellationToken)) {
-                    var connectionInfo = new HostConnectionInfo(_session.Name, _session, _session._startupInfo.UseRHostCommandLineArguments);
+                    var connectionInfo = new HostConnectionInfo(_session.Name, _session.IsTransient, _session, _session._startupInfo.UseRHostCommandLineArguments);
                     _hostToSwitch = await _session.BrokerClient.ConnectAsync(connectionInfo, cancellationToken);
                 }
             }

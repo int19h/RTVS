@@ -19,7 +19,7 @@ namespace Microsoft.R.Host.Client {
         bool IsConnected { get; }
         IBrokerClient Broker { get; }
 
-        IRSession GetOrCreate(string sessionId);
+        IRSession GetOrCreate(string sessionId, bool isTransient = true);
         IEnumerable<IRSession> GetSessions();
 
         /// <summary>
