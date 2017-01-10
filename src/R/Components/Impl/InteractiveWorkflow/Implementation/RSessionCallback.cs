@@ -146,5 +146,23 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             }
             return localPath;
         }
+
+        public async Task<string> UploadFileAsync(string fileName, CancellationToken cancellationToken) {
+            await _coreShell.SwitchToMainThreadAsync(cancellationToken);
+
+            try {
+                var message = Resources.Progress_UploadingFile.FormatInvariant(fileName);
+                string remoteFileName = null;
+                _coreShell.ProgressDialog.Show(async (progress, ct) => {
+                    using (DataTransferSession dts = new DataTransferSession(_session, _fileSystem)) {
+                        remoteFileName = await dts.CopyFileToRemoteTempAsync(fileName, true, progress, message, cancellationToken);
+                    }
+                }, message);
+                return remoteFileName;
+            } catch (Exception ex) {
+                _coreShell.ShowErrorMessage(Resources.Error_UnableToTransferFile.FormatInvariant(fileName, ex.Message));
+                return null;
+            }
+        }
     }
 }

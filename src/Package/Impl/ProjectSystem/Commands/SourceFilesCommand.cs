@@ -19,7 +19,6 @@ using Microsoft.VisualStudio.ProjectSystem;
 using Microsoft.VisualStudio.ProjectSystem.FileSystemMirroring;
 using Microsoft.VisualStudio.R.Package.Commands;
 using Microsoft.VisualStudio.R.Package.Shell;
-using System.Threading;
 #if VS14
 using Microsoft.VisualStudio.ProjectSystem.Designers;
 using Microsoft.VisualStudio.ProjectSystem.Utilities;
@@ -82,7 +81,7 @@ namespace Microsoft.VisualStudio.R.Package.ProjectSystem.Commands {
                                    fs.FileExists(x));
                     }
 
-                    workflow.Operations.SourceFiles(rFiles, echo);
+                    workflow.Operations.SourceFiles(rFiles, false, echo);
                 } catch (IOException ex) {
                     _appShell.ShowErrorMessage(string.Format(CultureInfo.InvariantCulture, Resources.Error_CannotTransferFile, ex.Message));
                 } 

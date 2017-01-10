@@ -80,5 +80,11 @@ namespace Microsoft.R.Host.Client {
         /// Saves data to file sent from RHost.
         /// </summary>
         Task<string> FetchFileAsync(string remoteFileName, ulong remoteBlobId, string localPath, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Called from R to retrieve the contents of the local (to API client) file. The implementation should upload the file
+        /// to a suitable path on the host filesystem (e.g. the temp folder), and return the full path to the resulting file.
+        /// </summary>
+        Task<string> UploadFileAsync(string fileName, CancellationToken cancellationToken);
     }
 }

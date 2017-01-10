@@ -137,6 +137,11 @@ namespace Microsoft.R.Host.Client {
             return localPath;
         }
 
+        public async Task<string> UploadFileAsync(string fileName, CancellationToken cancellationToken) {
+            await Console.Error.WriteAsync(Invariant($"upload_file({fileName})"));
+            return fileName;
+        }
+
         private async Task<string> ReadLineAsync(string prompt, CancellationToken ct) {
             while (true) {
                 await Console.Out.WriteAsync($"|{_nesting}| {prompt}");

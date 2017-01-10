@@ -631,4 +631,7 @@ Please upgrade remote R Services installation to match.</value>
   <data name="BrokerDisconnected" xml:space="preserve">
     <value>Connection to the workspace has been terminated.</value>
   </data>
+  <data name="Progress_UploadingFile" xml:space="preserve">
+    <value>Uploading file {0}...</value>
+  </data>
 </root>

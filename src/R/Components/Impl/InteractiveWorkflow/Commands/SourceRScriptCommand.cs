@@ -52,16 +52,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Commands {
             _interactiveWorkflow.Shell.SaveFileIfDirty(filePath);
             activeWindow.Container.Show(focus: false, immediate: false);
 
-            var session = _interactiveWorkflow.RSession;
-            if (session.IsRemote) {
-                using (DataTransferSession dts = new DataTransferSession(_interactiveWorkflow.RSession, new FileSystem())) {
-                    // TODO: add progress indication and cancellation
-                    string remotePath = await dts.CopyFileToRemoteTempAsync(filePath, true, null, CancellationToken.None);
-                    await _interactiveWorkflow.Operations.SourceFileAsync(remotePath, _echo, textView.TextBuffer.GetEncoding());
-                }
-            } else {
-                await _interactiveWorkflow.Operations.SourceFileAsync(filePath, _echo, textView.TextBuffer.GetEncoding());
-            }
+            await _interactiveWorkflow.Operations.SourceFileAsync(filePath, _interactiveWorkflow.RSession.IsRemote, _echo, textView.TextBuffer.GetEncoding());
             return CommandResult.Executed;
         }
 

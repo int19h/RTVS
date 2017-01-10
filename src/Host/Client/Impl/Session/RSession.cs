@@ -720,6 +720,9 @@ if (rtvs:::version != {rtvsPackageVersion}) {{
             return callback != null ? callback.FetchFileAsync(remoteFileName, remoteBlobId, localPath, cancellationToken) : Task.FromResult(string.Empty);
         }
 
+        Task<string> IRCallbacks.UploadFileAsync(string fileName, CancellationToken cancellationToken) =>
+            _callback?.UploadFileAsync(fileName, cancellationToken) ?? Task.FromResult<string>(null);
+
         private class BeforeInitializedRExpressionEvaluator : IRExpressionEvaluator {
             private readonly RSession _session;
 

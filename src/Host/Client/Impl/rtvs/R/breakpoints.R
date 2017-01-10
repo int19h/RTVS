@@ -273,6 +273,16 @@ debug_parse <- function(filename, encoding = getOption('encoding')) {
     result
 }
 
-debug_source <- function(file, encoding = getOption('encoding')) {
+debug_source <- function(file, from_local = FALSE, encoding = getOption('encoding')) {
+    if (!from_local) {
+        filename <- send_request_and_get_response('!UploadFile', filename)
+    }
     safe_eval(debug_parse(file, encoding), parent.frame(1))
+}
+
+source <- function(file, from_local = FALSE, ...) {
+    if (!from_local) {
+        filename <- send_request_and_get_response('!UploadFile', filename)
+    }
+    base::source(filename, ...)
 }

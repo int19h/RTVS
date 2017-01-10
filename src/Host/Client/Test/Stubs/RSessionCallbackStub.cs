@@ -22,6 +22,7 @@ namespace Microsoft.R.Host.Client.Test.Stubs {
         public IList<int> ViewLibraryCalls { get; } = new List<int>();
         public IList<Tuple<string, string, bool>> ShowFileCalls { get; } = new List<Tuple<string, string, bool>>();
         public IList<Tuple<string, string>> SaveFileCalls { get; } = new List<Tuple<string, string>>();
+        public IList<string> UploadFileCalls { get; } = new List<string>();
 
         public Func<string, MessageButtons, Task<MessageButtons>> ShowMessageCallsHandler { get; set; } = 
             (m, b) => Task.FromResult(b.HasFlag(MessageButtons.Yes) ? MessageButtons.Yes : MessageButtons.OK);
@@ -37,6 +38,7 @@ namespace Microsoft.R.Host.Client.Test.Stubs {
         public Action ViewLibraryHandler { get; set; } = () => { };
         public Func<string, string, bool, Task> ShowFileHandler { get; set; } = (f, t, d) => Task.CompletedTask;
         public Func<string, ulong, string, Task<string>> SaveFileHandler { get; set; } = (r, b, l) => Task.FromResult(string.Empty);
+        public Func<string, Task<string>> UploadFileHandler { get; set; } = filename => Task.FromResult(string.Empty);
 
         public Task ShowErrorMessage(string message, CancellationToken cancellationToken = default(CancellationToken)) {
             ShowErrorMessageCalls.Add(message);
@@ -104,6 +106,12 @@ namespace Microsoft.R.Host.Client.Test.Stubs {
         public Task<string> FetchFileAsync(string remotePath, ulong remoteBlobId, string localPath, CancellationToken cancellationToken) {
             SaveFileCalls.Add(new Tuple<string, string>(remotePath, localPath));
             SaveFileHandler?.Invoke(remotePath, remoteBlobId, localPath);
+            return Task.FromResult(string.Empty);
+        }
+
+        public Task<string> UploadFileAsync(string fileName, CancellationToken cancellationToken) {
+            UploadFileCalls.Add(fileName);
+            UploadFileHandler?.Invoke(fileName);
             return Task.FromResult(string.Empty);
         }
     }

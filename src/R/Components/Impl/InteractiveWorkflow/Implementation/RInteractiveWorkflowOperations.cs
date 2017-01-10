@@ -163,29 +163,51 @@ namespace Microsoft.VisualStudio.R.Package.Repl {
             return InteractiveWindow.Operations.ResetAsync();
         }
 
-        public void SourceFiles(IEnumerable<string> files, bool echo) {
+        public void SourceFiles(IEnumerable<string> files, bool fromLocal, bool echo) {
             Task.Run(async () => {
                 var shortNames = await _workflow.RSession.MakeRelativeToRUserDirectoryAsync(files);
                 _coreShell.DispatchOnUIThread(() => {
                     foreach (var name in shortNames) {
-                        EnqueueExpression(GetSourceExpression(name, echo), addNewLine: true);
+                        EnqueueExpression(GetSourceExpression(name, fromLocal, echo), addNewLine: true);
                     }
                 });
             });
         }
 
-        public async Task SourceFileAsync(string file, bool echo, Encoding encoding = null, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task SourceFileAsync(string file, bool fromLocal, bool echo, Encoding encoding = null, CancellationToken cancellationToken = default(CancellationToken)) {
             await TaskUtilities.SwitchToBackgroundThread();
             file = await _workflow.RSession.MakeRelativeToRUserDirectoryAsync(file, cancellationToken);
             await _coreShell.SwitchToMainThreadAsync(cancellationToken);
-            ExecuteExpression(GetSourceExpression(file, echo, encoding));
+            ExecuteExpression(GetSourceExpression(file, fromLocal, echo, encoding));
         }
 
-        private string GetSourceExpression(string file, bool echo, Encoding encoding = null) {
-            string func = _debuggerModeTracker.IsDebugging && !echo ? "rtvs::debug_source" : "source";
-            string echoArg = echo ? ", echo = TRUE" : "";
-            string encodingArg = encoding != null ? ", encoding = " + encoding.WebName.ToRStringLiteral() : "";
-            return Invariant($"{func}({file.ToRStringLiteral()}{echoArg}{encodingArg})");
+        private string GetSourceExpression(string file, bool fromLocal, bool echo, Encoding encoding = null) {
+            var sb = new StringBuilder("rtvs::");
+            if (_debuggerModeTracker.IsDebugging && !echo) {
+                sb.Append("debug_source");
+            } else {
+                sb.Append("source");
+            }
+
+            sb.Append("(");
+
+            sb.Append(file.ToRStringLiteral());
+
+            if (fromLocal) {
+                sb.Append(", from_local = TRUE");
+            }
+
+            if (echo) {
+                sb.Append(", echo = TRUE");
+            }
+
+            if (encoding != null) {
+                sb.Append(", encoding = ");
+                sb.Append(encoding.WebName.ToRStringLiteral());
+            }
+
+            sb.Append(")");
+            return sb.ToString();
         }
 
         public void TryRunShinyApp () {

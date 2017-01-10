@@ -186,6 +186,32 @@ namespace Microsoft.R.Host.Client {
         }
 
         /// <summary>
+        /// Like <see cref="CopyFileToRemoteTempAsync(string, bool, IProgress{long}, CancellationToken)"/>,
+        /// but reports progress via <see cref="ProgressDialogData"/>.
+        /// </summary>
+        public async Task<string> CopyFileToRemoteTempAsync(string filePath, bool doCleanUp, IProgress<ProgressDialogData> progress, string progressMessage, CancellationToken cancellationToken) {
+            await TaskUtilities.SwitchToBackgroundThread();
+
+            long total;
+            try {
+                total = new FileInfo(filePath).Length;
+            } catch (Exception ex) when (!ex.IsCriticalException()) {
+                total = 0;
+            }
+
+            progress.Report(new ProgressDialogData(0, statusBarText: progressMessage, waitMessage: progressMessage));
+
+            var result = await CopyFileToRemoteTempAsync(filePath, doCleanUp, new Progress<long>(b => {
+                var step = total != 0 ? (int)(b * 100 / total) : 0;
+                progress.Report(new ProgressDialogData(step, statusBarText: progressMessage, waitMessage: progressMessage));
+            }), cancellationToken);
+
+            progress.Report(new ProgressDialogData(100, statusBarText: progressMessage, waitMessage: progressMessage));
+
+            return result;
+        }
+
+        /// <summary>
         /// Copies file from remote file path to downloads folder on the local session.
         /// </summary>
         /// <param name="filePath">Path to the file on remote machine.</param>

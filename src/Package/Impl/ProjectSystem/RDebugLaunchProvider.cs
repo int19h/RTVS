@@ -143,7 +143,7 @@ namespace Microsoft.VisualStudio.R.Package.ProjectSystem {
             }
 
             ProgressOutputWriter.WriteLine(string.Format(Resources.Info_SourcingFile, file));
-            await _interactiveWorkflow.Operations.SourceFileAsync(file, echo: false).SilenceException<Exception>();
+            await _interactiveWorkflow.Operations.SourceFileAsync(file, fromLocal: false, echo: false).SilenceException<Exception>();
         }
 
         private async Task SendProjectAsync(EnvDTE.Project project, string remotePath, string filterString, CancellationToken cancellationToken) {

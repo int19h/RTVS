@@ -1345,6 +1345,15 @@ namespace Microsoft.R.Components {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Uploading file {0}....
+        /// </summary>
+        public static string Progress_UploadingFile {
+            get {
+                return ResourceManager.GetString("Progress_UploadingFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Ready.
         /// </summary>
         public static string Ready {

@@ -549,6 +549,12 @@ namespace Microsoft.R.Host.Client {
                                     }
                                 }).DoNotWait();
                                 break;
+
+                            case "?UploadFile":
+                                var uploadedFileName = await _callbacks.UploadFileAsync(message.GetString(0, "filename"), ct);
+                                await RespondAsync(message, ct, uploadedFileName);
+                                break;
+
                             default:
                                 throw ProtocolError($"Unrecognized host message name:", message);
                         }

@@ -63,6 +63,10 @@ namespace Microsoft.R.Host.Client.Test.Script {
             return Task.FromResult(localPath);
         }
 
+        public Task<string> UploadFileAsync(string fileName, CancellationToken cancellationToken) {
+            return Task.FromResult(fileName);
+        }
+
         public Task<PlotDeviceProperties> PlotDeviceCreate(Guid deviceId, CancellationToken ct) {
             if (PlotDeviceCreateHandler != null) {
                 return Task.FromResult(PlotDeviceCreateHandler(deviceId));
