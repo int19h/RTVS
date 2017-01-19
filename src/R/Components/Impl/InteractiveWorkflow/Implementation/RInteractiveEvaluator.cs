@@ -30,7 +30,6 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
         private readonly IRSettings _settings;
         private readonly IConsole _console;
         private readonly CountdownDisposable _evaluatorRequest;
-        private CarriageReturnProcessor _crProcessor;
         private int _terminalWidth = 80;
         private IInteractiveWindow _currentWindow;
         private bool _brokerChanging;
@@ -70,7 +69,6 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
 
         public void Dispose() {
             _disposableBag.TryDispose();
-            _crProcessor?.Dispose();
             if (CurrentWindow != null) {
                 CurrentWindow.TextView.VisualElement.SizeChanged -= VisualElement_SizeChanged;
             }
@@ -197,14 +195,13 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
                 _currentWindow = value;
                 if (_currentWindow != null) {
                     _currentWindow.TextView.VisualElement.SizeChanged += VisualElement_SizeChanged;
-                    _crProcessor = new CarriageReturnProcessor(_coreShell, _currentWindow);
                 }
             }
         }
 
         private void SessionOnOutput(object sender, ROutputEventArgs args) {
             if (args.OutputType == OutputType.Output) {
-                Write(args.Message.ToUnicodeQuotes()).DoNotWait();
+                Write(args.Message.ToUnicodeQuotes());
             } else {
                 WriteErrorLine(args.Message);
             }
@@ -260,12 +257,8 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             });
         }
 
-
-        private async Task Write(string message) {
-            if (CurrentWindow != null && !_crProcessor.ProcessMessage(message)) {
-                await _coreShell.SwitchToMainThreadAsync();
-                CurrentWindow?.Write(message);
-            }
+        private void Write(string message) {
+            _console.Write(message);
         }
 
         private void WriteErrorLine(string message) {

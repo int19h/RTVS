@@ -63,7 +63,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
             _settings = settings;
 
             Shell = coreShell;
-            RSessions = new RSessionProvider(coreShell.Services, new InteractiveWindowConsole(this));
+            RSessions = new RSessionProvider(coreShell.Services, new InteractiveWindowConsole(coreShell, this));
 
             RSession = RSessions.GetOrCreate(SessionNames.InteractiveWindow);
             Connections = connectionsProvider.CreateConnectionManager(this);
@@ -159,7 +159,7 @@ namespace Microsoft.R.Components.InteractiveWorkflow.Implementation {
 
         private async Task CreateVisualComponentAsync(int instanceId) {
             var factory = Shell.ExportProvider.GetExportedValue<IInteractiveWindowComponentContainerFactory>();
-            var evaluator = new RInteractiveEvaluator(RSessions, RSession, History, Connections, Shell, _settings, new InteractiveWindowConsole(this));
+            var evaluator = new RInteractiveEvaluator(RSessions, RSession, History, Connections, Shell, _settings, new InteractiveWindowConsole(Shell, this));
 
             var window = factory.Create(instanceId, evaluator, RSessions);
             var interactiveWindow = window.InteractiveWindow;

@@ -53,7 +53,7 @@ namespace Microsoft.VisualStudio.R.Packages.R {
             var dbcs = exportProvider.GetExportedValue<IDbConnectionService>();
             var settings = exportProvider.GetExportedValue<IRToolsSettings>();
             var logPerms = appShell.Services.LoggingServices.Permissions;
-            var console = new InteractiveWindowConsole(interactiveWorkflow);
+            var console = new InteractiveWindowConsole(appShell, interactiveWorkflow);
 
             return new List<MenuCommand> {
                 new GoToOptionsCommand(),
