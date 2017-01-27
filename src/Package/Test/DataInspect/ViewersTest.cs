@@ -72,13 +72,13 @@ namespace Microsoft.VisualStudio.R.Package.Test.DataInspect {
                 funcViewer.Should().NotBeNull().And.BeOfType<CodeViewer>();
 
                 var gridViewer = await _aggregator.GetViewer(session, REnvironments.GlobalEnv, "airmiles");
-                gridViewer.Should().NotBeNull().And.BeOfType<Viewer1D>();
+                gridViewer.Should().NotBeNull().And.BeOfType<VectorViewer>();
 
                 gridViewer = await _aggregator.GetViewer(session, REnvironments.GlobalEnv, "mtcars");
                 gridViewer.Should().NotBeNull().And.BeOfType<TableViewer>();
 
                 gridViewer = await _aggregator.GetViewer(session, REnvironments.GlobalEnv, "AirPassengers");
-                gridViewer.Should().NotBeNull().And.BeOfType<Viewer1D>();
+                gridViewer.Should().NotBeNull().And.BeOfType<VectorViewer>();
 
                 gridViewer = await _aggregator.GetViewer(session, REnvironments.GlobalEnv, "list(c(1:10))");
                 gridViewer.Should().NotBeNull().And.BeOfType<ListViewer>();
@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.R.Package.Test.DataInspect {
         [Test]
         public void Viewer1DTest() {
             var e = Substitute.For<IDataObjectEvaluator>();
-            var viewer = new Viewer1D(_aggregator, e);
+            var viewer = new VectorViewer(_aggregator, e);
 
             var eval = Substitute.For<IRValueInfo>();
             eval.Classes.Returns(new List<string>() { "environment" });
@@ -171,14 +171,13 @@ namespace Microsoft.VisualStudio.R.Package.Test.DataInspect {
             viewer.CanView(eval).Should().BeFalse();
 
             eval.Length.Returns(2);
+            eval.Flags.Returns(RValueFlags.Atomic);
             foreach (var c in new string[] { "ts", "array" }) {
                 eval.Classes.Returns(new List<string>() { c });
                 eval.Dim.Count.Returns(2);
-                viewer.CanView(eval).Should().BeFalse();
+                viewer.CanView(eval).Should().BeTrue();
                 eval.Dim.Count.Returns(1);
                 viewer.CanView(eval).Should().BeTrue();
-                eval.Dim.Count.Returns(0);
-                viewer.CanView(eval).Should().BeFalse();
             }
 
             eval.Dim.Returns((IReadOnlyList<int>)null);

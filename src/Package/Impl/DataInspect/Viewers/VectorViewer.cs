@@ -8,7 +8,7 @@ using Microsoft.R.DataInspection;
 namespace Microsoft.VisualStudio.R.Package.DataInspect.Viewers {
     [Export(typeof(IObjectDetailsViewer))]
     internal sealed class VectorViewer : GridViewerBase {
-        private readonly static string[] _excludedClasses = new string[] { "expression", "function", "factor", "environment" };
+        private readonly static string[] _excludedClasses = new string[] { "factor" };
 
         [ImportingConstructor]
         public VectorViewer(IObjectDetailsViewerAggregator aggregator, IDataObjectEvaluator evaluator) :
@@ -16,10 +16,11 @@ namespace Microsoft.VisualStudio.R.Package.DataInspect.Viewers {
 
         #region IObjectDetailsViewer
         public override bool CanView(IRValueInfo evaluation) {
-            if (evaluation != null && !evaluation.Classes.Any(t => _excludedClasses.Contains(t))) {
-                return evaluation.Dim == null && evaluation.Length > 1;
-            }
-            return false;
+            return evaluation != null &&
+                evaluation.IsAtomic() &&
+                evaluation.Length > 1 &&
+                (evaluation.Dim == null || evaluation.Dim.Count <= 2) &&
+                !evaluation.Classes.Any(t => _excludedClasses.Contains(t));
         }
         #endregion
     }
